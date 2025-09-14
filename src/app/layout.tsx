@@ -3,6 +3,7 @@ import { Inter, Bitter, Space_Mono } from "next/font/google";
 import "./globals.css";
 import { AppKit } from "../context/appkit";
 import { Providers } from "../context/providers";
+import { Toaster } from "sonner";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -38,6 +39,7 @@ export default function RootLayout({
             {children}
           </Providers>
         </AppKit>
+        <Toaster />
       </body>
     </html>
   );

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
 import { ReactNode } from 'react';
 import { config } from '@/config/wagmi';
+import { UsernameProvider } from '@/contexts/UsernameContext';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,7 +24,9 @@ export function Providers({ children }: ProvidersProps) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        {children}
+        <UsernameProvider>
+          {children}
+        </UsernameProvider>
       </QueryClientProvider>
     </WagmiProvider>
   );
