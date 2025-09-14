@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, Bitter, Space_Mono } from "next/font/google";
 import "./globals.css";
+import { AppKit } from "../context/appkit";
+import { Providers } from "../context/providers";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -31,7 +33,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${bitter.variable} ${spaceMono.variable}`}>
       <body className={`${inter.className} antialiased`}>
-        {children}
+        <AppKit>
+          <Providers>
+            {children}
+          </Providers>
+        </AppKit>
       </body>
     </html>
   );

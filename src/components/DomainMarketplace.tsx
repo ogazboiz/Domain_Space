@@ -1,4 +1,131 @@
+"use client";
+
+import { useState } from "react";
+
 export default function DomainMarketplace() {
+  const [activeTab, setActiveTab] = useState("browse");
+
+  const tabs = [
+    { id: "trading", label: "Trading", count: "25" },
+    { id: "browse", label: "Browse Domains", count: "854K" },
+    { id: "myspace", label: "My Space", count: "12" },
+    { id: "chat", label: "Chat", count: "5" }
+  ];
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case "trading":
+        return (
+          <div className="text-center py-20">
+            <h3 className="text-white text-2xl font-bold mb-4">Trading Dashboard</h3>
+            <p className="text-gray-400">Manage your domain trades and transactions</p>
+          </div>
+        );
+      case "browse":
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Domain Cards */}
+            {[
+              { name: "crypto.doma", price: "0.5 ETH", status: "Available" },
+              { name: "nft.doma", price: "1.2 ETH", status: "Available" },
+              { name: "defi.doma", price: "0.8 ETH", status: "Available" },
+              { name: "web3.doma", price: "2.1 ETH", status: "Available" },
+              { name: "dao.doma", price: "1.5 ETH", status: "Available" },
+              { name: "metaverse.doma", price: "3.2 ETH", status: "Available" }
+            ].map((domain, index) => (
+              <div
+                key={index}
+                className="flex flex-col justify-between"
+                style={{
+                  width: '389.5px',
+                  height: '189px',
+                  borderRadius: '30px',
+                  borderWidth: '1px',
+                  paddingTop: '20px',
+                  paddingRight: '16px',
+                  paddingBottom: '20px',
+                  paddingLeft: '16px',
+                  gap: '20px',
+                  background: '#121212',
+                  border: '1px solid',
+                  borderImageSource: 'radial-gradient(88.13% 63.48% at 26.09% 25.74%, #FFFFFF 0%, rgba(255, 255, 255, 0.905829) 8.52%, rgba(255, 255, 255, 0.801323) 40.45%, rgba(255, 255, 255, 0.595409) 40.46%, rgba(255, 255, 255, 0.29) 96.15%, rgba(255, 255, 255, 0) 100%, rgba(255, 255, 255, 0) 100%), linear-gradient(180deg, rgba(0, 0, 0, 0.2) 18.72%, rgba(255, 30, 0, 0.2) 43.64%, rgba(0, 0, 0, 0.2) 67.21%)'
+                }}
+              >
+                <div className="flex-1">
+                  <h3 
+                    className="text-white mb-2"
+                    style={{
+                      fontFamily: 'var(--font-space-mono), monospace',
+                      fontWeight: 700,
+                      fontSize: '20px',
+                      lineHeight: '100%',
+                      letterSpacing: '0%'
+                    }}
+                  >
+                    {domain.name}
+                  </h3>
+                  <p className="text-gray-400 text-sm mb-2">{domain.status}</p>
+                  <p className="text-purple-400 font-bold">{domain.price}</p>
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <button 
+                    className="text-center"
+                    style={{
+                      width: '95px',
+                      height: '40px',
+                      borderRadius: '20px',
+                      borderWidth: '1px',
+                      paddingTop: '10px',
+                      paddingRight: '16px',
+                      paddingBottom: '10px',
+                      paddingLeft: '16px',
+                      gap: '8px',
+                      border: '1px solid #FFFFFF',
+                      background: 'transparent',
+                      color: 'white'
+                    }}
+                  >
+                    Offer
+                  </button>
+                  <button 
+                    style={{
+                      width: '95px',
+                      height: '40px',
+                      borderRadius: '20px',
+                      paddingTop: '10px',
+                      paddingRight: '16px',
+                      paddingBottom: '10px',
+                      paddingLeft: '16px',
+                      gap: '8px',
+                      background: '#773BAC'
+                    }}
+                  >
+                    Buy
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      case "myspace":
+        return (
+          <div className="text-center py-20">
+            <h3 className="text-white text-2xl font-bold mb-4">My Space</h3>
+            <p className="text-gray-400">View and manage your owned domains</p>
+          </div>
+        );
+      case "chat":
+        return (
+          <div className="text-center py-20">
+            <h3 className="text-white text-2xl font-bold mb-4">Chat</h3>
+            <p className="text-gray-400">Connect with other domain enthusiasts</p>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <section className="relative py-20 px-6 lg:px-12">
       {/* Background */}
