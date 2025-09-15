@@ -1,15 +1,12 @@
-export interface Message {
-  id: string;
-  content: string;
-  sender: string;
-  timestamp: Date;
-  conversation?: string;
-}
+import type { DecodedMessage, Dm } from '@xmtp/browser-sdk'
 
-export interface Conversation {
-  id: string;
-  topic: string;
+// Enhanced conversation type (matches domainline pattern)
+export interface EnhancedConversation extends Omit<Dm, 'metadata'> {
   peerAddress: string;
-  createdAt: Date;
-  lastMessage?: Message;
+  metadata?: {
+    lastMessage?: string;
+    lastMessageTime?: Date;
+    unreadCount?: number;
+    isTyping?: boolean;
+  };
 }

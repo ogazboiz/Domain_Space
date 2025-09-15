@@ -6,6 +6,7 @@ import { WagmiProvider } from 'wagmi';
 import { ReactNode } from 'react';
 import { config } from '@/config/wagmi';
 import { UsernameProvider } from '@/contexts/UsernameContext';
+import { XMTPProvider } from '@/contexts/XMTPContext';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,7 +26,9 @@ export function Providers({ children }: ProvidersProps) {
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <UsernameProvider>
-          {children}
+          <XMTPProvider>
+            {children}
+          </XMTPProvider>
         </UsernameProvider>
       </QueryClientProvider>
     </WagmiProvider>

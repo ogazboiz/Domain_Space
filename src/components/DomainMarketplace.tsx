@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useNames, useOwnedNames, useSelectedNames } from "@/data/use-doma";
 import { formatDistanceToNow } from "date-fns";
 import { formatUnits } from "viem";
@@ -12,6 +12,7 @@ import DomainCard from "./DomainCard";
 import MessagingModal from "./MessagingModal";
 import DomainDetailPage from "./DomainDetailPage";
 import DialogCheckingDM from "./DialogCheckingDM";
+import ImprovedXMTPChat from "./chat/ImprovedXMTPChat";
 
 // TLD color mappings - using exact hex colors like in the image
 const TLD_COLORS: Record<string, string> = {
@@ -78,7 +79,10 @@ const TabNavigation = ({ tabs, activeTab, setActiveTab }: {
       return (
         <button 
           key={tab.id}
-          onClick={() => setActiveTab(tab.id)}
+          onClick={() => {
+            console.log('Tab clicked:', tab.id);
+            setActiveTab(tab.id);
+          }}
           className={`flex items-center space-x-2 px-6 py-4 transition-all duration-200 rounded-t-lg relative -ml-2 hover:bg-gray-800/50 ${
             isActive ? 'cursor-default' : 'cursor-pointer'
           }`}
@@ -108,14 +112,15 @@ const TabNavigation = ({ tabs, activeTab, setActiveTab }: {
 );
 
 // Search Bar Component
-const SearchBar = ({ searchQuery, setSearchQuery }: { 
-  searchQuery: string; 
-  setSearchQuery: (query: string) => void; 
+const SearchBar = ({ searchQuery, setSearchQuery, placeholder = "Search domains..." }: {
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  placeholder?: string;
 }) => (
   <div className="relative">
     <input
       type="text"
-      placeholder="Search domains..."
+      placeholder={placeholder}
       value={searchQuery}
       onChange={(e) => setSearchQuery(e.target.value)}
       className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 pr-10 text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 w-full lg:w-64"
@@ -123,6 +128,92 @@ const SearchBar = ({ searchQuery, setSearchQuery }: {
     <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
       <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"/>
     </svg>
+  </div>
+);
+
+// Chat Domain Search Bar Component with dropdown results
+const ChatDomainSearchBar = ({ 
+  searchQuery, 
+  setSearchQuery, 
+  showResults, 
+  setShowResults,
+  domains,
+  isLoading,
+  onDomainClick,
+  onFocus,
+  searchRef
+}: {
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  showResults: boolean;
+  setShowResults: (show: boolean) => void;
+  domains: Name[];
+  isLoading: boolean;
+  onDomainClick: (domain: Name) => void;
+  onFocus: () => void;
+  searchRef: React.RefObject<HTMLDivElement | null>;
+}) => (
+  <div ref={searchRef} className="relative w-full lg:w-64">
+    <input
+      type="text"
+      placeholder="Search domains to message..."
+      value={searchQuery}
+      onChange={(e) => setSearchQuery(e.target.value)}
+      onFocus={() => {
+        setShowResults(true);
+        onFocus();
+      }}
+      className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 pr-10 text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 w-full"
+    />
+    <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+      <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"/>
+    </svg>
+    
+    {/* Domain Search Results Dropdown */}
+    {showResults && (searchQuery || domains.length > 0) && (
+      <div className="absolute top-full left-0 right-0 mt-2 bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-50 max-h-80 overflow-y-auto">
+        {isLoading ? (
+          <div className="p-4 text-center">
+            <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+            <p className="text-gray-400 text-sm">Searching domains...</p>
+          </div>
+        ) : domains.length === 0 ? (
+          <div className="p-4 text-center">
+            <p className="text-gray-400 text-sm">
+              {searchQuery ? `No domains found for "${searchQuery}"` : "Start typing to search domains"}
+            </p>
+          </div>
+        ) : (
+          <div className="py-2">
+            {domains.slice(0, 10).map((domain) => (
+              <button
+                key={domain.name}
+                onClick={() => onDomainClick(domain)}
+                className="w-full px-4 py-3 text-left hover:bg-gray-700 transition-colors flex items-center space-x-3"
+              >
+                <div className="w-8 h-8 rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center flex-shrink-0">
+                  <span className="text-blue-400 text-xs font-bold">
+                    {domain.name.split('.')[1]?.slice(0, 2).toUpperCase() || 'DO'}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-white font-medium truncate">
+                    {domain.name}
+                  </div>
+                  <div className="text-gray-400 text-xs truncate">
+                    {domain.claimedBy ? `Owner: ${domain.claimedBy.split(':')[2]?.slice(0, 6)}...${domain.claimedBy.split(':')[2]?.slice(-4)}` : 'Available'}
+                  </div>
+                </div>
+                <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                  <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                </svg>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    )}
   </div>
 );
 
@@ -345,11 +436,14 @@ const DomainGrid = ({
 export default function DomainMarketplace() {
   const [activeTab, setActiveTab] = useState("browse");
   const [searchQuery, setSearchQuery] = useState("");
+  const [chatSearchQuery, setChatSearchQuery] = useState("");
+  const [chatDomainSearchQuery, setChatDomainSearchQuery] = useState("");
   const [tldFilter, setTldFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priceFilter, setPriceFilter] = useState("all");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [myspaceTab, setMyspaceTab] = useState("owned");
+  const [showChatDomainSearch, setShowChatDomainSearch] = useState(false);
 
   // New state for enhanced features
   const [selectedDomain, setSelectedDomain] = useState<Name | null>(null);
@@ -359,6 +453,8 @@ export default function DomainMarketplace() {
   const [showCheckingDM, setShowCheckingDM] = useState(false);
   const [selectedUserAddress, setSelectedUserAddress] = useState<string>("");
 
+  // Ref for chat domain search dropdown
+  const chatSearchRef = useRef<HTMLDivElement>(null);
 
   const { address } = useAccount();
   const { formatLargeNumber } = useHelper();
@@ -385,6 +481,20 @@ export default function DomainMarketplace() {
     false, // listed
     searchQuery, // name
     tldFilter === "all" ? [] : [tldFilter] // tlds
+  );
+
+  // Chat domain search hook
+  const { 
+    data: chatDomainSearchData, 
+    fetchNextPage: fetchNextChatDomainPage, 
+    hasNextPage: hasNextChatDomain, 
+    isLoading: isLoadingChatDomains,
+    error: chatDomainError
+  } = useNames(
+    20, // take
+    false, // listed
+    chatDomainSearchQuery, // name
+    [] // tlds
   );
 
   // My Space hooks
@@ -418,6 +528,13 @@ export default function DomainMarketplace() {
   }, [browseDomainsData]);
 
   const totalBrowseCount = browseDomainsData?.pages[0]?.totalCount || 0;
+
+  // Chat domain search results
+  const chatSearchDomains = useMemo(() => {
+    if (!chatDomainSearchData?.pages) return [];
+    
+    return chatDomainSearchData.pages.flatMap(page => page.items);
+  }, [chatDomainSearchData]);
 
   // Debug logging
   console.log('Browse Domains Debug:', {
@@ -463,8 +580,13 @@ export default function DomainMarketplace() {
     }
 
     console.log('Starting conversation with domain owner:', ownerAddress);
+    
+    // Set the owner address and switch to chat tab immediately
     setSelectedUserAddress(ownerAddress);
-    setShowCheckingDM(true);
+    setActiveTab("chat");
+    
+    // Close any open modals
+    setShowDetailPage(false);
   }, []);
 
   const handleBuy = useCallback((domain: Name) => {
@@ -487,6 +609,49 @@ export default function DomainMarketplace() {
     // Switch to chat tab to show the new conversation
     setActiveTab("chat");
     // You can add additional logic here to highlight the new conversation
+  }, []);
+
+  // Handle domain search in chat tab (simplified like browse domains)
+  const handleChatDomainMessage = useCallback((domain: Name) => {
+    if (!domain.claimedBy) {
+      alert("This domain is not owned by anyone yet.");
+      return;
+    }
+
+    // Extract address from CAIP-10 format (eip155:1:0x...)
+    const ownerAddress = domain.claimedBy.split(':')[2];
+    if (!ownerAddress) {
+      alert("Invalid owner address format.");
+      return;
+    }
+
+    console.log('🔄 Domain clicked for messaging:', {
+      domainName: domain.name,
+      ownerAddress: ownerAddress,
+      currentSelectedUser: selectedUserAddress
+    });
+
+    // Set the owner address directly (like browse domains do)
+    setSelectedUserAddress(ownerAddress);
+    setChatDomainSearchQuery('');
+    setShowChatDomainSearch(false);
+
+    // The ImprovedXMTPChat component will automatically handle conversation creation
+    console.log('✅ Set selected user address to:', ownerAddress);
+  }, [selectedUserAddress]);
+
+  // Click outside handler for chat domain search dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (chatSearchRef.current && !chatSearchRef.current.contains(event.target as Node)) {
+        setShowChatDomainSearch(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
 
@@ -756,22 +921,14 @@ export default function DomainMarketplace() {
           </div>
         );
       case "chat":
+        console.log('Rendering chat tab with selectedUserAddress:', selectedUserAddress);
         return (
-          <div className="space-y-6">
-            <div className="text-center py-20">
-              <div className="text-6xl mb-4">💬</div>
-              <h3 className="text-white text-2xl font-bold mb-4">Chat Coming Soon</h3>
-              <p className="text-gray-400 mb-8">Messaging features are under development.</p>
-              <div className="bg-gray-800 rounded-lg p-4 max-w-md mx-auto">
-                <h4 className="text-white font-semibold mb-2">Features Coming:</h4>
-                <ul className="text-gray-300 text-sm space-y-1">
-                  <li>🔒 End-to-end encrypted messages</li>
-                  <li>💬 Direct domain owner communication</li>
-                  <li>🤝 Secure offer negotiations</li>
-                  <li>🌐 Web3 native messaging</li>
-                </ul>
-              </div>
-            </div>
+          <div className="h-full w-full">
+            <ImprovedXMTPChat
+              defaultPeerAddress={selectedUserAddress}
+              searchQuery={chatSearchQuery}
+              setSearchQuery={setChatSearchQuery}
+            />
           </div>
         );
       default:
@@ -814,6 +971,7 @@ export default function DomainMarketplace() {
             className="text-white max-w-2xl mx-auto font-space-mono"
             style={{
               fontWeight: 400,
+              
               fontSize: '20px',
               lineHeight: '100%',
               letterSpacing: '0px'
@@ -825,16 +983,34 @@ export default function DomainMarketplace() {
 
         {/* Navigation Tabs and Search */}
         <div className="mb-8 flex flex-col lg:flex-row items-start lg:items-end justify-between gap-4">
-          <TabNavigation 
+          <TabNavigation
             tabs={tabs}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
           />
-          
-          <SearchBar 
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-          />
+
+          {/* Show appropriate search bar based on active tab */}
+          {activeTab === "browse" && (
+            <SearchBar
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              placeholder="Search domains..."
+            />
+          )}
+
+          {activeTab === "chat" && (
+            <ChatDomainSearchBar
+              searchQuery={chatDomainSearchQuery}
+              setSearchQuery={setChatDomainSearchQuery}
+              showResults={showChatDomainSearch}
+              setShowResults={setShowChatDomainSearch}
+              domains={chatSearchDomains}
+              isLoading={isLoadingChatDomains}
+              onDomainClick={handleChatDomainMessage}
+              onFocus={() => setShowChatDomainSearch(true)}
+              searchRef={chatSearchRef}
+            />
+          )}
         </div>
 
         {/* Filters Section - Only show for browse tab */}

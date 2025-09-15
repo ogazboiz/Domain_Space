@@ -36,17 +36,13 @@ const DomainCard = ({
 
   return (
     <div
-      className="flex flex-col justify-between hover:scale-105 transition-all duration-300 w-full max-w-sm group"
+      className="flex flex-col hover:scale-105 transition-all duration-300 w-full max-w-sm group"
       style={{
-        height: '189px',
+        minHeight: '220px',
         borderRadius: '30px',
         borderWidth: '1px',
         opacity: 1,
-        paddingTop: '20px',
-        paddingRight: '16px',
-        paddingBottom: '20px',
-        paddingLeft: '16px',
-        gap: '20px',
+        padding: '20px 16px',
         backgroundColor: '#121212',
         border: '1px solid',
         borderImage: 'radial-gradient(88.13% 63.48% at 26.09% 25.74%, #FFFFFF 0%, rgba(255, 255, 255, 0.905829) 8.52%, rgba(255, 255, 255, 0.801323) 40.45%, rgba(255, 255, 255, 0.595409) 40.46%, rgba(255, 255, 255, 0.29) 96.15%, rgba(255, 255, 255, 0) 100%, rgba(255, 255, 255, 0) 100%), linear-gradient(180deg, rgba(0, 0, 0, 0.2) 18.72%, rgba(255, 30, 0, 0.2) 43.64%, rgba(0, 0, 0, 0.2) 67.21%)',
@@ -55,7 +51,8 @@ const DomainCard = ({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="flex items-start justify-between mb-3">
+      {/* Header Section */}
+      <div className="flex items-start justify-between mb-4">
         <div className="flex items-center space-x-3 flex-1 min-w-0">
           <div 
             className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -71,7 +68,7 @@ const DomainCard = ({
               style={{
                 fontWeight: 700,
                 fontSize: '16px',
-                lineHeight: '100%',
+                lineHeight: '120%',
                 letterSpacing: '0%'
               }}
               title={domain.name}
@@ -131,8 +128,9 @@ const DomainCard = ({
         </div>
       </div>
       
-      <div className="flex justify-between items-end">
-        <div className="space-y-1 flex-1 min-w-0">
+      {/* Info Section */}
+      <div className="flex-1 flex flex-col justify-between">
+        <div className="space-y-2 mb-4">
           <div className="flex items-center space-x-2">
             <span 
               className="text-white text-xs px-2 py-1 rounded"
@@ -151,94 +149,76 @@ const DomainCard = ({
           )}
         </div>
         
-        <div className="flex-shrink-0 ml-2">
-          <div className="flex flex-col space-y-1">
-            {isListed ? (
-              <>
-                <button 
-                  onClick={() => onBuy?.(domain)}
-                  className="text-white hover:opacity-90 transition-opacity font-medium text-xs"
-                  style={{
-                    width: '80px',
-                    height: '32px',
-                    borderRadius: '16px',
-                    opacity: 1,
-                    paddingTop: '6px',
-                    paddingRight: '12px',
-                    paddingBottom: '6px',
-                    paddingLeft: '12px',
-                    gap: '6px',
-                    backgroundColor: '#773BAC'
-                  }}
-                >
-                  Buy
-                </button>
-                <button 
-                  onClick={() => onOffer?.(domain)}
-                  className="text-white hover:bg-white/10 transition-colors font-medium text-xs flex items-center justify-center"
-                  style={{
-                    width: '80px',
-                    height: '32px',
-                    borderRadius: '16px',
-                    borderWidth: '1px',
-                    opacity: 1,
-                    paddingTop: '6px',
-                    paddingRight: '12px',
-                    paddingBottom: '6px',
-                    paddingLeft: '12px',
-                    gap: '6px',
-                    border: '1px solid #FFFFFF',
-                    backgroundColor: 'transparent'
-                  }}
-                >
-                  Offer
-                </button>
-              </>
-            ) : (
+        {/* Action Buttons */}
+        <div className="flex flex-col space-y-2">
+          {isListed ? (
+            <div className="flex space-x-2">
               <button 
-                onClick={() => onOffer?.(domain)}
-                className="text-white hover:opacity-90 transition-opacity font-medium text-xs"
+                onClick={() => onBuy?.(domain)}
+                className="text-white hover:opacity-90 transition-opacity font-medium text-xs flex-1"
                 style={{
-                  width: '80px',
                   height: '32px',
                   borderRadius: '16px',
                   opacity: 1,
-                  paddingTop: '6px',
-                  paddingRight: '12px',
-                  paddingBottom: '6px',
-                  paddingLeft: '12px',
-                  gap: '6px',
-                  backgroundColor: isOwned ? '#6B7280' : '#773BAC'
+                  padding: '6px 12px',
+                  backgroundColor: '#773BAC'
                 }}
               >
-                {isOwned ? 'Offer' : 'Claim'}
+                Buy
               </button>
-            )}
-            
-            {/* Message Button - Only show if not owned by user */}
-            {!isOwnedByUser && (
               <button 
-                onClick={() => onMessage?.(domain)}
-                className="text-white hover:bg-white/10 transition-colors font-medium text-xs flex items-center justify-center"
+                onClick={() => onOffer?.(domain)}
+                className="text-white hover:bg-white/10 transition-colors font-medium text-xs flex-1"
                 style={{
-                  width: '80px',
                   height: '32px',
                   borderRadius: '16px',
                   borderWidth: '1px',
                   opacity: 1,
-                  paddingTop: '6px',
-                  paddingRight: '12px',
-                  paddingBottom: '6px',
-                  paddingLeft: '12px',
-                  gap: '6px',
-                  border: '1px solid #10B981',
+                  padding: '6px 12px',
+                  border: '1px solid #FFFFFF',
                   backgroundColor: 'transparent'
                 }}
               >
-                💬 Message
+                Offer
               </button>
-            )}
-          </div>
+            </div>
+          ) : (
+            <button 
+              onClick={() => onOffer?.(domain)}
+              className="text-white hover:opacity-90 transition-opacity font-medium text-xs w-full"
+              style={{
+                height: '32px',
+                borderRadius: '16px',
+                opacity: 1,
+                padding: '6px 12px',
+                backgroundColor: isOwned ? '#6B7280' : '#773BAC'
+              }}
+            >
+              {isOwned ? 'Offer' : 'Claim'}
+            </button>
+          )}
+          
+          {/* Message Button - Only show if not owned by user */}
+          {!isOwnedByUser && (
+            <button 
+              onClick={() => {
+                console.log('Message button clicked for domain:', domain.name, 'owner:', domain.claimedBy);
+                onMessage?.(domain);
+              }}
+              className="text-white hover:bg-white/10 transition-colors font-medium text-xs w-full"
+              style={{
+                height: '32px',
+                borderRadius: '16px',
+                borderWidth: '1px',
+                opacity: 1,
+                padding: '6px 12px',
+                border: '1px solid #10B981',
+                backgroundColor: 'transparent'
+              }}
+            >
+              💬 Message Owner
+            </button>
+          )}
         </div>
       </div>
     </div>
