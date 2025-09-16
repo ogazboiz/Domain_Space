@@ -630,6 +630,13 @@ export default function DomainMarketplace() {
     setSelectedUserAddress('');
   }, []);
 
+  // Clear selectedUserAddress when wallet address changes to prevent showing old conversations
+  useEffect(() => {
+    console.log('🔄 Wallet address changed, clearing selectedUserAddress');
+    setSelectedUserAddress('');
+    setShowCheckingDM(false);
+  }, [address]);
+
   // Handle domain search in chat tab - start conversation with domain owner
   const handleChatDomainMessage = useCallback((domain: Name) => {
     if (!domain.claimedBy) {

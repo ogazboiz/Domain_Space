@@ -191,14 +191,42 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     return 'Unknown';
   }, [client]);
 
+  // Loading state to prevent multiple simultaneous calls
+  const [isLoadingConversations, setIsLoadingConversations] = useState(false);
+
+  // Reusable deduplication function
+  const deduplicateConversations = useCallback((conversations: EnhancedConversation[]): EnhancedConversation[] => {
+    const uniqueConversations = conversations.reduce((acc, current) => {
+      const existingIndex = acc.findIndex(item => item.id === current.id);
+      if (existingIndex === -1) {
+        acc.push(current);
+      } else {
+        // Keep the one with more recent data (in case of race conditions)
+        if (current.metadata.lastMessageTime &&
+            (!acc[existingIndex].metadata.lastMessageTime ||
+             current.metadata.lastMessageTime > acc[existingIndex].metadata.lastMessageTime)) {
+          acc[existingIndex] = current;
+        }
+      }
+      return acc;
+    }, [] as EnhancedConversation[]);
+
+    return uniqueConversations;
+  }, []);
+
   // Load conversations with metadata (like domainline)
   const loadConversations = useCallback(async () => {
-    if (!client) return;
+    if (!client || isLoadingConversations) {
+      console.log('⏭️ Skipping loadConversations - no client or already loading');
+      return;
+    }
 
+    console.log('🔄 Starting loadConversations');
+    setIsLoadingConversations(true);
     setLoading(true);
     try {
       const dms = await client.conversations.list();
-      console.log('Loaded conversations:', dms);
+      console.log('Loaded conversations from XMTP:', dms.length, 'conversations');
 
       const enhancedConversations: EnhancedConversation[] = await Promise.all(
         dms.map(async (dm: any) => {
@@ -231,13 +259,19 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
         return timeB - timeA;
       });
 
-      setConversations(enhancedConversations);
+      // Use the reusable deduplication function
+      const uniqueConversations = deduplicateConversations(enhancedConversations);
+
+      console.log(`🧹 Deduplication: ${enhancedConversations.length} → ${uniqueConversations.length} conversations`);
+      setConversations(uniqueConversations);
     } catch (error) {
       console.error("Failed to load conversations:", error);
     } finally {
       setLoading(false);
+      setIsLoadingConversations(false);
+      console.log('✅ Finished loadConversations');
     }
-  }, [client, getPeerAddress]);
+  }, [client, getPeerAddress, isLoadingConversations, deduplicateConversations]);
 
   // Create conversation (like domainline)
   const createConversation = useCallback(
@@ -671,6 +705,21 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     }
   }, [defaultPeerAddress]);
 
+  // Clear all chat state when wallet address changes
+  useEffect(() => {
+    console.log("🔄 Wallet address changed, clearing chat state");
+    setConversations([]);
+    setActiveConversation(null);
+    setMessages([]);
+    setConversationError(null);
+    setConversationSuccess(false);
+    setIsCreatingConversation(false);
+    setLoadingMessages(false);
+    setNewConversationAddress('');
+    setIsManuallySelecting(false);
+    setIsLoadingConversations(false);
+  }, [address]);
+
   // Note: Message loading is now handled directly in handleSelectConversation
   // to avoid circular dependencies and unnecessary reloads
 
@@ -723,25 +772,26 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     const setupConversationStream = async () => {
       try {
         const controller = await client.conversations.stream({
-          onValue: (conversation) => {
+          onValue: async (conversation) => {
+            // Get peer address for the new conversation
+            const peerAddress = await getPeerAddress(conversation);
+
+            const newConv: EnhancedConversation = {
+              id: conversation.id,
+              peerAddress,
+              metadata: {
+                unreadCount: 1,
+                isTyping: false,
+              },
+              xmtpObject: conversation, // Store the original XMTP object
+            };
+
+            // Use deduplication when adding new conversations from stream
             setConversations(prev => {
-              const existingIndex = prev.findIndex(conv => conv.id === conversation.id);
-              if (existingIndex === -1) {
-                // Add new conversation
-                getPeerAddress(conversation).then(peerAddress => {
-                  const newConv: EnhancedConversation = {
-                    id: conversation.id,
-                    peerAddress,
-                    metadata: {
-                      unreadCount: 1,
-                      isTyping: false,
-                    },
-                    xmtpObject: conversation, // Store the original XMTP object
-                  };
-                  setConversations(prev => [newConv, ...prev]);
-                });
-              }
-              return prev;
+              const combined = [newConv, ...prev];
+              const deduplicated = deduplicateConversations(combined);
+              console.log(`🔄 Stream conversation added: ${combined.length} → ${deduplicated.length} conversations`);
+              return deduplicated;
             });
           },
           onError: (error: any) => {

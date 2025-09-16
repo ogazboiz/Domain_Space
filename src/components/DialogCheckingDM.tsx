@@ -27,7 +27,27 @@ const DialogCheckingDM: React.FC<DialogCheckingDMProps> = ({
       };
       const inboxId = await client?.findInboxIdByIdentifier(identifier);
       if (inboxId) {
-        const conversation = await client?.conversations.newDm(inboxId || "");
+        // First, check if conversation already exists by looking through all conversations
+        const allConversations = await client?.conversations.list();
+        let existingConversation = null;
+
+        // Find existing conversation with this peer
+        for (const conv of allConversations || []) {
+          if (conv.peerInboxId === inboxId) {
+            existingConversation = conv;
+            break;
+          }
+        }
+
+        let conversation;
+        if (existingConversation) {
+          console.log("✅ Found existing conversation, reusing:", existingConversation.id);
+          conversation = existingConversation;
+        } else {
+          console.log("🆕 Creating new conversation for:", userAddress);
+          conversation = await client?.conversations.newDm(inboxId || "");
+        }
+
         onOpenChange(false);
         // Trigger a custom event to notify parent
         window.dispatchEvent(new CustomEvent('conversationCreated', {
