@@ -400,23 +400,19 @@ const DomainFilters = ({ statusFilter, setStatusFilter, priceFilter, setPriceFil
 // );
 
 // Domain Grid Component
-const DomainGrid = ({ 
-  domains, 
-  formatPrice, 
-  getTldColor, 
-  // onDomainClick,
+const DomainGrid = ({
+  domains,
+  formatPrice,
+  getTldColor,
   onMessage,
-  onBuy,
-  onOffer,
+  onTransactionSuccess,
   userAddress
-}: { 
-  domains: Name[]; 
-  formatPrice: (price: string, decimals: number) => string; 
+}: {
+  domains: Name[];
+  formatPrice: (price: string, decimals: number) => string;
   getTldColor: (tld: string) => string;
-  onDomainClick?: (domain: Name) => void;
   onMessage?: (domain: Name) => void;
-  onBuy?: (domain: Name) => void;
-  onOffer?: (domain: Name) => void;
+  onTransactionSuccess?: (type: 'buy' | 'offer', domain: Name, result: any) => void;
   userAddress?: string;
 }) => (
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 justify-items-center">
@@ -427,8 +423,7 @@ const DomainGrid = ({
         formatPrice={formatPrice}
         getTldColor={getTldColor}
         onMessage={onMessage}
-        onBuy={onBuy}
-        onOffer={onOffer}
+        onTransactionSuccess={onTransactionSuccess}
         userAddress={userAddress}
       />
     ))}
@@ -462,6 +457,20 @@ export default function DomainMarketplace() {
   const { address } = useAccount();
   // const { formatLargeNumber } = useHelper();
   const { profile } = useUsername();
+
+  // Transaction success handler
+  const handleTransactionSuccess = useCallback((type: 'buy' | 'offer', domain: Name, result: any) => {
+    console.log(`${type} transaction successful for ${domain.name}:`, result);
+
+    if (type === 'buy') {
+      alert(`🎉 Successfully purchased ${domain.name}!\n\nTransaction completed. The domain is now yours.`);
+    } else {
+      alert(`💰 Successfully created offer for ${domain.name}!\n\nYour offer has been submitted and the owner will be notified.`);
+    }
+
+    // Optional: Refresh the domain list to show updated data
+    // You can implement this by calling a refetch function if available
+  }, []);
 
   // Memoized filter parameters for API calls
   // const browseFilterParams = useMemo(() => ({
@@ -592,15 +601,7 @@ export default function DomainMarketplace() {
     setShowDetailPage(false);
   }, []);
 
-  const handleBuy = useCallback((domain: Name) => {
-    console.log('Buy domain:', domain.name);
-    // Implement buy logic here
-  }, []);
 
-  const handleOffer = useCallback((domain: Name) => {
-    console.log('Make offer for domain:', domain.name);
-    // Implement offer logic here
-  }, []);
 
   const handleBackToMarketplace = useCallback(() => {
     setShowDetailPage(false);
@@ -718,10 +719,8 @@ export default function DomainMarketplace() {
                     domains={browseDomains}
                     formatPrice={formatPrice}
                     getTldColor={getTldColor}
-                    onDomainClick={handleDomainClick}
                     onMessage={handleMessage}
-                    onBuy={handleBuy}
-                    onOffer={handleOffer}
+                    onTransactionSuccess={handleTransactionSuccess}
                     userAddress={address}
                   />
                   
@@ -871,10 +870,8 @@ export default function DomainMarketplace() {
                             domains={ownedDomainsData?.pages?.flatMap(p => p.items) || []}
                             formatPrice={formatPrice}
                             getTldColor={getTldColor}
-                            onDomainClick={handleDomainClick}
                             onMessage={handleMessage}
-                            onBuy={handleBuy}
-                            onOffer={handleOffer}
+                            onTransactionSuccess={handleTransactionSuccess}
                             userAddress={address}
                           />
                           {hasNextOwned && (
@@ -921,10 +918,8 @@ export default function DomainMarketplace() {
                             domains={watchedDomainsData?.pages?.flatMap(p => p.items) || []}
                             formatPrice={formatPrice}
                             getTldColor={getTldColor}
-                            onDomainClick={handleDomainClick}
                             onMessage={handleMessage}
-                            onBuy={handleBuy}
-                            onOffer={handleOffer}
+                            onTransactionSuccess={handleTransactionSuccess}
                             userAddress={address}
                           />
                           {hasNextWatched && (

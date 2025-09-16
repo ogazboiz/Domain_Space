@@ -482,23 +482,47 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
       
       console.log('Raw messages from XMTP:', msgs);
       
-      // Filter out system messages and keep only text messages (like domainline)
+      // DEBUG: Show ALL messages first to see what's being filtered
+      console.log('🔍 DEBUG: All raw messages:', msgs.map(m => ({
+        id: m.id,
+        content: m.content,
+        contentType: typeof m.content,
+        contentLength: m.content?.length,
+        senderInboxId: m.senderInboxId,
+        startsWithBrace: typeof m.content === 'string' ? m.content.startsWith('{') : false,
+        includesInitiated: typeof m.content === 'string' ? m.content.includes('initiatedByInboxId') : false
+      })));
+
+      // TEMPORARY: Show ALL messages to debug the filtering
       const textMessages = msgs.filter((msg: DecodedMessage) => {
-        const isText = typeof msg.content === "string" && 
-                      msg.content !== "" && 
-                      !msg.content.startsWith("{") && // Filter out JSON system messages
-                      !msg.content.includes("initiatedByInboxId"); // Filter out conversation creation messages
-        console.log('Message filter check:', { 
-          content: msg.content, 
-          isText, 
-          type: typeof msg.content 
+        // Much more permissive filter for debugging
+        const isText = typeof msg.content === "string" && msg.content !== "";
+        console.log('🔍 Message filter check:', {
+          content: msg.content,
+          isText,
+          type: typeof msg.content,
+          length: msg.content?.length
         });
         return isText;
       });
       
-      console.log('Filtered text messages:', textMessages);
+      console.log('🔍 Production Debug - All messages from XMTP:', msgs.length);
+      console.log('🔍 Production Debug - Raw messages:', msgs.map(m => ({
+        id: m.id,
+        content: m.content,
+        contentType: typeof m.content,
+        senderInboxId: m.senderInboxId,
+        sentAtNs: m.sentAtNs
+      })));
+      console.log('🔍 Production Debug - Filtered text messages:', textMessages.length);
+      console.log('🔍 Production Debug - Filtered messages:', textMessages.map(m => ({
+        id: m.id,
+        content: m.content,
+        senderInboxId: m.senderInboxId
+      })));
+
       setMessages(textMessages);
-      console.log("Messages loaded, current messages count:", textMessages.length);
+      console.log("✅ Messages set in state, current count:", textMessages.length);
     } catch (error) {
       console.error("Failed to load messages:", error);
       setMessages([]);
@@ -543,11 +567,9 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
             await existingConversation.xmtpObject.sync();
             const msgs = await existingConversation.xmtpObject.messages();
             
+            // DEBUG: Much more permissive filter
             const textMessages = msgs.filter((msg: DecodedMessage) => {
-              const isText = typeof msg.content === "string" && 
-                            msg.content !== "" && 
-                            !msg.content.startsWith("{") && 
-                            !msg.content.includes("initiatedByInboxId");
+              const isText = typeof msg.content === "string" && msg.content !== "";
               return isText;
             });
             
@@ -599,11 +621,9 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
             await conversation.sync();
             const msgs = await conversation.messages();
             
+            // DEBUG: Much more permissive filter
             const textMessages = msgs.filter((msg: DecodedMessage) => {
-              const isText = typeof msg.content === "string" && 
-                            msg.content !== "" && 
-                            !msg.content.startsWith("{") && 
-                            !msg.content.includes("initiatedByInboxId");
+              const isText = typeof msg.content === "string" && msg.content !== "";
               return isText;
             });
             
@@ -656,11 +676,9 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
               await (conversation as Dm).sync();
               const msgs = await (conversation as Dm).messages();
               
+              // DEBUG: Much more permissive filter
               const textMessages = msgs.filter((msg: DecodedMessage) => {
-                const isText = typeof msg.content === "string" && 
-                              msg.content !== "" && 
-                              !msg.content.startsWith("{") && 
-                              !msg.content.includes("initiatedByInboxId");
+                const isText = typeof msg.content === "string" && msg.content !== "";
                 return isText;
               });
               
@@ -1344,10 +1362,18 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                 </div>
               )}
               
+              {/* DEBUG INFO - Remove in production */}
+              <div className="text-xs text-yellow-400 mb-2 p-2 bg-yellow-900/20 rounded">
+                🔍 Debug: messages.length={messages.length}, loadingMessages={loadingMessages.toString()}, activeConv={activeConversation?.id || 'none'}
+              </div>
+
               {messages.length === 0 && !loadingMessages ? (
                 <div className="text-center py-20">
                   <div className="text-gray-400 text-lg mb-2">No messages yet</div>
                   <div className="text-gray-500 text-sm">Start the conversation below</div>
+                  <div className="text-yellow-400 text-xs mt-4">
+                    Debug: Conv ID: {activeConversation?.id}, Peer: {activePeerAddress}
+                  </div>
                 </div>
               ) : (
                 messages.map((message) => {
