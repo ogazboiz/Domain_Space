@@ -2,8 +2,8 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useNames, useOwnedNames, useSelectedNames } from "@/data/use-doma";
-import { formatDistanceToNow } from "date-fns";
-import { formatUnits } from "viem";
+// import { formatDistanceToNow } from "date-fns";
+// import { formatUnits } from "viem";
 import { Name } from "@/types/doma";
 import { useAccount } from "wagmi";
 import { useHelper } from "@/hooks/use-helper";
@@ -49,7 +49,7 @@ const DomainGridSkeleton = ({ count = 6 }) => (
 const NoResults = ({ searchQuery }: { searchQuery: string }) => (
   <div className="text-center py-20">
     <h3 className="text-white text-xl font-bold mb-4">No domains found</h3>
-    <p className="text-gray-400">No domains found matching "{searchQuery}"</p>
+    <p className="text-gray-400">No domains found matching &quot;{searchQuery}&quot;</p>
   </div>
 );
 
@@ -180,7 +180,7 @@ const ChatDomainSearchBar = ({
         ) : domains.length === 0 ? (
           <div className="p-4 text-center">
             <p className="text-gray-400 text-sm">
-              {searchQuery ? `No domains found for "${searchQuery}"` : "Start typing to search domains"}
+              {searchQuery ? `No domains found for &quot;${searchQuery}&quot;` : "Start typing to search domains"}
             </p>
           </div>
         ) : (
@@ -188,7 +188,10 @@ const ChatDomainSearchBar = ({
             {domains.slice(0, 10).map((domain) => (
               <button
                 key={domain.name}
-                onClick={() => onDomainClick(domain)}
+                onClick={() => {
+                  console.log('🖱️ Domain dropdown clicked:', domain.name, domain.claimedBy);
+                  onDomainClick(domain);
+                }}
                 className="w-full px-4 py-3 text-left hover:bg-gray-700 transition-colors flex items-center space-x-3"
               >
                 <div className="w-8 h-8 rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center flex-shrink-0">
@@ -265,143 +268,143 @@ const DomainFilters = ({ statusFilter, setStatusFilter, priceFilter, setPriceFil
   </div>
 );
 
-// Portfolio Overview Component
-const PortfolioOverview = ({ ownedDomainsCount }: { ownedDomainsCount: number }) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 justify-items-center">
-    <div 
-      className="flex flex-col justify-between hover:scale-105 transition-transform w-full max-w-sm"
-      style={{
-        height: '189px',
-        borderRadius: '30px',
-        borderWidth: '1px',
-        opacity: 1,
-        paddingTop: '20px',
-        paddingRight: '16px',
-        paddingBottom: '20px',
-        paddingLeft: '16px',
-        gap: '20px',
-        backgroundColor: '#121212',
-        border: '1px solid',
-        borderImage: 'radial-gradient(88.13% 63.48% at 26.09% 25.74%, #FFFFFF 0%, rgba(255, 255, 255, 0.905829) 8.52%, rgba(255, 255, 255, 0.801323) 40.45%, rgba(255, 255, 255, 0.595409) 40.46%, rgba(255, 255, 255, 0.29) 96.15%, rgba(255, 255, 255, 0) 100%, rgba(255, 255, 255, 0) 100%), linear-gradient(180deg, rgba(0, 0, 0, 0.2) 18.72%, rgba(255, 30, 0, 0.2) 43.64%, rgba(0, 0, 0, 0.2) 67.21%)',
-        borderImageSlice: 1
-      }}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center space-x-3 flex-1 min-w-0">
-          <div 
-            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: '#EEEFFF29' }}
-          >
-            <span className="text-white text-xs font-bold">💰</span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 
-              className="font-bold truncate font-space-mono"
-              style={{
-                fontWeight: 700,
-                fontSize: '16px',
-                lineHeight: '100%',
-                letterSpacing: '0%'
-              }}
-            >
-              <span className="text-white">Total Value</span>
-            </h3>
-          </div>
-        </div>
-        <div className="text-right flex-shrink-0 ml-2">
-          <p className="text-white text-sm font-semibold">0 ETH</p>
-          <p className="text-gray-400 text-xs">$0</p>
-        </div>
-      </div>
-      
-      <div className="flex justify-between items-end">
-        <div className="space-y-1 flex-1 min-w-0">
-          <div className="flex items-center space-x-2">
-            <span 
-              className="text-white text-xs px-2 py-1 rounded"
-              style={{ backgroundColor: '#1689DB3B' }}
-            >
-              Portfolio
-            </span>
-          </div>
-          <p className="text-gray-400 text-xs truncate">
-            Track your domain investments
-          </p>
-        </div>
-      </div>
-    </div>
+// Portfolio Overview Component - commented out
+// const PortfolioOverview = ({ ownedDomainsCount }: { ownedDomainsCount: number }) => (
+//   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 justify-items-center">
+//     <div
+//       className="flex flex-col justify-between hover:scale-105 transition-transform w-full max-w-sm"
+//       style={{
+//         height: '189px',
+//         borderRadius: '30px',
+//         borderWidth: '1px',
+//         opacity: 1,
+//         paddingTop: '20px',
+//         paddingRight: '16px',
+//         paddingBottom: '20px',
+//         paddingLeft: '16px',
+//         gap: '20px',
+//         backgroundColor: '#121212',
+//         border: '1px solid',
+//         borderImage: 'radial-gradient(88.13% 63.48% at 26.09% 25.74%, #FFFFFF 0%, rgba(255, 255, 255, 0.905829) 8.52%, rgba(255, 255, 255, 0.801323) 40.45%, rgba(255, 255, 255, 0.595409) 40.46%, rgba(255, 255, 255, 0.29) 96.15%, rgba(255, 255, 255, 0) 100%, rgba(255, 255, 255, 0) 100%), linear-gradient(180deg, rgba(0, 0, 0, 0.2) 18.72%, rgba(255, 30, 0, 0.2) 43.64%, rgba(0, 0, 0, 0.2) 67.21%)',
+//         borderImageSlice: 1
+//       }}
+//     >
+//       <div className="flex items-start justify-between mb-3">
+//         <div className="flex items-center space-x-3 flex-1 min-w-0">
+//           <div
+//             className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+//             style={{ backgroundColor: '#EEEFFF29' }}
+//           >
+//             <span className="text-white text-xs font-bold">💰</span>
+//           </div>
+//           <div className="flex-1 min-w-0">
+//             <h3
+//               className="font-bold truncate font-space-mono"
+//               style={{
+//                 fontWeight: 700,
+//                 fontSize: '16px',
+//                 lineHeight: '100%',
+//                 letterSpacing: '0%'
+//               }}
+//             >
+//               <span className="text-white">Total Value</span>
+//             </h3>
+//           </div>
+//         </div>
+//         <div className="text-right flex-shrink-0 ml-2">
+//           <p className="text-white text-sm font-semibold">0 ETH</p>
+//           <p className="text-gray-400 text-xs">$0</p>
+//         </div>
+//       </div>
+//
+//       <div className="flex justify-between items-end">
+//         <div className="space-y-1 flex-1 min-w-0">
+//           <div className="flex items-center space-x-2">
+//             <span
+//               className="text-white text-xs px-2 py-1 rounded"
+//               style={{ backgroundColor: '#1689DB3B' }}
+//             >
+//               Portfolio
+//             </span>
+//           </div>
+//           <p className="text-gray-400 text-xs truncate">
+//             Track your domain investments
+//           </p>
+//         </div>
+//       </div>
+//     </div>
 
-    <div 
-      className="flex flex-col justify-between hover:scale-105 transition-transform w-full max-w-sm"
-      style={{
-        height: '189px',
-        borderRadius: '30px',
-        borderWidth: '1px',
-        opacity: 1,
-        paddingTop: '20px',
-        paddingRight: '16px',
-        paddingBottom: '20px',
-        paddingLeft: '16px',
-        gap: '20px',
-        backgroundColor: '#121212',
-        border: '1px solid',
-        borderImage: 'radial-gradient(88.13% 63.48% at 26.09% 25.74%, #FFFFFF 0%, rgba(255, 255, 255, 0.905829) 8.52%, rgba(255, 255, 255, 0.801323) 40.45%, rgba(255, 255, 255, 0.595409) 40.46%, rgba(255, 255, 255, 0.29) 96.15%, rgba(255, 255, 255, 0) 100%, rgba(255, 255, 255, 0) 100%), linear-gradient(180deg, rgba(0, 0, 0, 0.2) 18.72%, rgba(255, 30, 0, 0.2) 43.64%, rgba(0, 0, 0, 0.2) 67.21%)',
-        borderImageSlice: 1
-      }}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center space-x-3 flex-1 min-w-0">
-          <div 
-            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: '#EEEFFF29' }}
-          >
-            <span className="text-white text-xs font-bold">🌐</span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 
-              className="font-bold truncate font-space-mono"
-              style={{
-                fontWeight: 700,
-                fontSize: '16px',
-                lineHeight: '100%',
-                letterSpacing: '0%'
-              }}
-            >
-              <span className="text-white">Total Domains</span>
-            </h3>
-          </div>
-        </div>
-        <div className="text-right flex-shrink-0 ml-2">
-          <p className="text-white text-sm font-semibold">{ownedDomainsCount}</p>
-          <p className="text-gray-400 text-xs">Owned</p>
-        </div>
-      </div>
-      
-      <div className="flex justify-between items-end">
-        <div className="space-y-1 flex-1 min-w-0">
-          <div className="flex items-center space-x-2">
-            <span 
-              className="text-white text-xs px-2 py-1 rounded"
-              style={{ backgroundColor: '#1689DB3B' }}
-            >
-              Collection
-            </span>
-          </div>
-          <p className="text-gray-400 text-xs truncate">
-            Your domain portfolio
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
-);
+//     <div
+//       className="flex flex-col justify-between hover:scale-105 transition-transform w-full max-w-sm"
+//       style={{
+//         height: '189px',
+//         borderRadius: '30px',
+//         borderWidth: '1px',
+//         opacity: 1,
+//         paddingTop: '20px',
+//         paddingRight: '16px',
+//         paddingBottom: '20px',
+//         paddingLeft: '16px',
+//         gap: '20px',
+//         backgroundColor: '#121212',
+//         border: '1px solid',
+//         borderImage: 'radial-gradient(88.13% 63.48% at 26.09% 25.74%, #FFFFFF 0%, rgba(255, 255, 255, 0.905829) 8.52%, rgba(255, 255, 255, 0.801323) 40.45%, rgba(255, 255, 255, 0.595409) 40.46%, rgba(255, 255, 255, 0.29) 96.15%, rgba(255, 255, 255, 0) 100%, rgba(255, 255, 255, 0) 100%), linear-gradient(180deg, rgba(0, 0, 0, 0.2) 18.72%, rgba(255, 30, 0, 0.2) 43.64%, rgba(0, 0, 0, 0.2) 67.21%)',
+//         borderImageSlice: 1
+//       }}
+//     >
+//       <div className="flex items-start justify-between mb-3">
+//         <div className="flex items-center space-x-3 flex-1 min-w-0">
+//           <div
+//             className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+//             style={{ backgroundColor: '#EEEFFF29' }}
+//           >
+//             <span className="text-white text-xs font-bold">🌐</span>
+//           </div>
+//           <div className="flex-1 min-w-0">
+//             <h3
+//               className="font-bold truncate font-space-mono"
+//               style={{
+//                 fontWeight: 700,
+//                 fontSize: '16px',
+//                 lineHeight: '100%',
+//                 letterSpacing: '0%'
+//               }}
+//             >
+//               <span className="text-white">Total Domains</span>
+//             </h3>
+//           </div>
+//         </div>
+//         <div className="text-right flex-shrink-0 ml-2">
+//           <p className="text-white text-sm font-semibold">{ownedDomainsCount}</p>
+//           <p className="text-gray-400 text-xs">Owned</p>
+//         </div>
+//       </div>
+//
+//       <div className="flex justify-between items-end">
+//         <div className="space-y-1 flex-1 min-w-0">
+//           <div className="flex items-center space-x-2">
+//             <span
+//               className="text-white text-xs px-2 py-1 rounded"
+//               style={{ backgroundColor: '#1689DB3B' }}
+//             >
+//               Collection
+//             </span>
+//           </div>
+//           <p className="text-gray-400 text-xs truncate">
+//             Your domain portfolio
+//           </p>
+//         </div>
+//       </div>
+//     </div>
+//   </div>
+// );
 
 // Domain Grid Component
 const DomainGrid = ({ 
   domains, 
   formatPrice, 
   getTldColor, 
-  onDomainClick,
+  // onDomainClick,
   onMessage,
   onBuy,
   onOffer,
@@ -457,23 +460,23 @@ export default function DomainMarketplace() {
   const chatSearchRef = useRef<HTMLDivElement>(null);
 
   const { address } = useAccount();
-  const { formatLargeNumber } = useHelper();
+  // const { formatLargeNumber } = useHelper();
   const { profile } = useUsername();
 
   // Memoized filter parameters for API calls
-  const browseFilterParams = useMemo(() => ({
-    search: searchQuery,
-    tlds: tldFilter === "all" ? [] : [tldFilter],
-    listed: false,
-    status: statusFilter === "all" ? undefined : statusFilter,
-    sort: priceFilter === "all" ? undefined : priceFilter
-  }), [searchQuery, tldFilter, statusFilter, priceFilter]);
+  // const browseFilterParams = useMemo(() => ({
+  //   search: searchQuery,
+  //   tlds: tldFilter === "all" ? [] : [tldFilter],
+  //   listed: false,
+  //   status: statusFilter === "all" ? undefined : statusFilter,
+  //   sort: priceFilter === "all" ? undefined : priceFilter
+  // }), [searchQuery, tldFilter, statusFilter, priceFilter]);
 
   // Browse domains hook with optimized parameters
-  const {
-    data: browseDomainsData,
-    fetchNextPage: fetchNextBrowsePage,
-    hasNextPage: hasNextBrowse,
+  const { 
+    data: browseDomainsData, 
+    fetchNextPage: fetchNextBrowsePage, 
+    hasNextPage: hasNextBrowse, 
     isLoading: isLoadingBrowse,
     error: browseError
   } = useNames(
@@ -486,10 +489,10 @@ export default function DomainMarketplace() {
   // Chat domain search hook
   const { 
     data: chatDomainSearchData, 
-    fetchNextPage: fetchNextChatDomainPage, 
-    hasNextPage: hasNextChatDomain, 
-    isLoading: isLoadingChatDomains,
-    error: chatDomainError
+    // fetchNextPage: fetchNextChatDomainPage, 
+    // hasNextPage: hasNextChatDomain, 
+    isLoading: isLoadingChatDomains
+    // error: chatDomainError
   } = useNames(
     20, // take
     false, // listed
@@ -523,7 +526,7 @@ export default function DomainMarketplace() {
   // Memoized domain processing
   const browseDomains = useMemo(() => {
     if (!browseDomainsData?.pages) return [];
-
+    
     return browseDomainsData.pages.flatMap(page => page.items);
   }, [browseDomainsData]);
 
@@ -604,40 +607,21 @@ export default function DomainMarketplace() {
     setSelectedDomain(null);
   }, []);
 
-  // Listen for conversation created events
-  useEffect(() => {
-    const handleConversationCreated = (event: CustomEvent) => {
-      const { conversationId, userAddress } = event.detail;
-      console.log('DM created successfully:', { conversationId, userAddress });
-      // Close the checking dialog
-      setShowCheckingDM(false);
-      // Switch to chat tab to show the new conversation
-      setActiveTab("chat");
-      // Set the selected user address to ensure the conversation is shown
-      setSelectedUserAddress(userAddress);
-      console.log('✅ Switched to chat with conversation:', conversationId);
-    };
-
-    window.addEventListener('conversationCreated', handleConversationCreated as EventListener);
-    return () => {
-      window.removeEventListener('conversationCreated', handleConversationCreated as EventListener);
-    };
+  const handleDMCreated = useCallback((dmId: string, userAddress: string) => {
+    console.log('DM created successfully:', { dmId, userAddress });
+    // Switch to chat tab to show the new conversation
+    setActiveTab("chat");
+    // You can add additional logic here to highlight the new conversation
   }, []);
 
   // Handle manual conversation selection - clear selectedUserAddress to prevent auto-switching back
   const handleManualConversationSelect = useCallback(() => {
     console.log('🔄 User manually selected a conversation, clearing selectedUserAddress');
     setSelectedUserAddress('');
+    setShowCheckingDM(false); // Also close any open checking dialog
   }, []);
 
-  // Clear selectedUserAddress when wallet address changes to prevent showing old conversations
-  useEffect(() => {
-    console.log('🔄 Wallet address changed, clearing selectedUserAddress');
-    setSelectedUserAddress('');
-    setShowCheckingDM(false);
-  }, [address]);
-
-  // Handle domain search in chat tab - start conversation with domain owner
+  // Handle domain search in chat tab (following domainline pattern)
   const handleChatDomainMessage = useCallback((domain: Name) => {
     if (!domain.claimedBy) {
       alert("This domain is not owned by anyone yet.");
@@ -653,19 +637,17 @@ export default function DomainMarketplace() {
 
     console.log('🔄 Domain clicked for messaging:', {
       domainName: domain.name,
-      ownerAddress: ownerAddress,
-      currentSelectedUser: selectedUserAddress
+      ownerAddress: ownerAddress
     });
-
-    // Set the owner address and show XMTP checking dialog
+    
+    // Set the owner address and show checking dialog (domainline pattern)
     setSelectedUserAddress(ownerAddress);
     setShowCheckingDM(true);
     setChatDomainSearchQuery('');
     setShowChatDomainSearch(false);
-
+    
     console.log('✅ Opening XMTP check dialog for user:', ownerAddress);
-    console.log('🔧 Dialog state - showCheckingDM:', true, 'selectedUserAddress:', ownerAddress);
-  }, [selectedUserAddress]);
+  }, []);
 
   // Click outside handler for chat domain search dropdown
   useEffect(() => {
@@ -680,6 +662,15 @@ export default function DomainMarketplace() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // Clear selectedUserAddress when switching away from chat tab
+  useEffect(() => {
+    if (activeTab !== "chat") {
+      console.log('🔄 Switched away from chat tab, clearing selectedUserAddress');
+      setSelectedUserAddress('');
+      setShowCheckingDM(false);
+    }
+  }, [activeTab]);
 
 
   // Tab definitions
@@ -715,7 +706,7 @@ export default function DomainMarketplace() {
                 <div className="text-center py-10">
                   <h3 className="text-white text-xl font-bold mb-2">Discover Domains</h3>
                   <p className="text-gray-400">Search for available domains or browse the marketplace</p>
-                  <p className="text-gray-500 text-sm mt-2">Try searching for "crypto", "nft", or any domain name</p>
+                  <p className="text-gray-500 text-sm mt-2">Try searching for &quot;crypto&quot;, &quot;nft&quot;, or any domain name</p>
                 </div>
               ) : isLoadingBrowse ? (
                 <DomainGridSkeleton count={6} />
@@ -778,7 +769,7 @@ export default function DomainMarketplace() {
                       <span className="text-2xl font-bold text-blue-400">{watchedDomainsCount}</span>
                     </div>
                     <h3 className="text-white font-semibold text-lg mb-1">Watchlist</h3>
-                    <p className="text-gray-400 text-sm">Domains you're tracking</p>
+                    <p className="text-gray-400 text-sm">Domains you&apos;re tracking</p>
                   </div>
                   
                   <div className="bg-gradient-to-br from-green-900/20 to-green-600/10 rounded-2xl p-6 border border-green-500/20">
@@ -898,7 +889,7 @@ export default function DomainMarketplace() {
                     <div className="flex items-center justify-between p-6 bg-gradient-to-r from-blue-900/20 to-blue-600/10 rounded-2xl border border-blue-500/20">
                       <div>
                         <h3 className="text-2xl font-bold text-white mb-2">👀 Watchlist</h3>
-                        <p className="text-gray-400">Monitor domains you're interested in and track their availability</p>
+                        <p className="text-gray-400">Monitor domains you&apos;re interested in and track their availability</p>
                       </div>
                       <button
                         onClick={() => setActiveTab("browse")}
@@ -952,7 +943,7 @@ export default function DomainMarketplace() {
         return (
           <div className="h-full w-full">
             <ImprovedXMTPChat
-              defaultPeerAddress={showCheckingDM ? '' : selectedUserAddress}
+              defaultPeerAddress={selectedUserAddress}
               searchQuery={chatSearchQuery}
               setSearchQuery={setChatSearchQuery}
               onManualConversationSelect={handleManualConversationSelect}
@@ -1110,6 +1101,7 @@ export default function DomainMarketplace() {
         open={showCheckingDM}
         onOpenChange={setShowCheckingDM}
         userAddress={selectedUserAddress}
+        onDMCreated={handleDMCreated}
       />
     </section>
   );

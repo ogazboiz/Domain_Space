@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Name } from "@/types/doma";
 import { formatDistanceToNow } from "date-fns";
-import { formatUnits } from "viem";
+// import { formatUnits } from "viem";
 import MessagingModal from "./MessagingModal";
 
 interface DomainDetailPageProps {
@@ -17,7 +17,7 @@ interface DomainDetailPageProps {
 const DomainDetailPage = ({ 
   domain, 
   onBack, 
-  onMessage, 
+  // onMessage, 
   onBuy, 
   onOffer 
 }: DomainDetailPageProps) => {

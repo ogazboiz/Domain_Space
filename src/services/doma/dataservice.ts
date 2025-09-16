@@ -38,9 +38,11 @@ interface GetNameStatsProps {
 
 class DataService {
   async getNames(props: GetNamesProps): Promise<Paging<Name>> {
+    const { tlds, ...restProps } = props;
     const data = await graphRequest<{ names: Paging<Name> }>(GET_NAMES, {
       skip: (props.page - 1) * props.take,
-      ...props,
+      ...restProps,
+      ...(tlds && { tlds }),
     });
 
     return data.names;
@@ -71,7 +73,6 @@ class DataService {
 
     const data = await graphRequest<{ names: Paging<Name> }>(GET_NAMES, {
       skip: (props.page - 1) * props.take,
-      name: props.name,
       ...props,
     });
 

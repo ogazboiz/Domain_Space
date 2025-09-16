@@ -16,7 +16,7 @@ interface IUserProfile {
 }
 
 interface UsernameContextType {
-  token: any;
+  token: string | null;
   isSwitching: boolean;
   activeUsername: string | null;
   setActiveUsername: (name: string | null) => void;
@@ -41,7 +41,7 @@ export const UsernameProvider: React.FC<UsernameProviderProps> = ({
   const [isSwitching, setIsSwitching] = useState(false);
   const [profile, setProfile] = useState<IUserProfile | null>(null);
 
-  const { data: namesData } = useOwnedNames(address, 10, []);
+  const { data: namesData } = useOwnedNames(address || "", 10, []);
 
   const _setActiveUsername = (newUsername: string | null) => {
     setIsSwitching(true);

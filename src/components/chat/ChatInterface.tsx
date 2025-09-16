@@ -3,10 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAccount } from 'wagmi'
 import { formatDistanceToNow } from 'date-fns'
-import { Client, type Dm, type DecodedMessage } from '@xmtp/browser-sdk'
+import { type Dm, type DecodedMessage } from '@xmtp/browser-sdk'
 import { useXMTPContext } from '@/contexts/XMTPContext'
-import { EnhancedConversation } from '@/types/chat'
-import { Search, Globe, User, Clock, MessageCircle, Command, Loader2 } from 'lucide-react'
+import { Search, Globe, MessageCircle, Loader2 } from 'lucide-react'
 import { useNames } from '@/data/use-doma'
 import { Name } from '@/types/doma'
 
@@ -14,12 +13,23 @@ interface ChatInterfaceProps {
   defaultPeerAddress?: string;
 }
 
+interface EnhancedConversation {
+  id: string;
+  peerAddress: string;
+  metadata: {
+    lastMessage?: string;
+    lastMessageTime?: Date;
+    unreadCount: number;
+    isTyping: boolean;
+  };
+  originalDm: Dm;
+}
+
 export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
-  const { address } = useAccount()
   const { client, isLoading, error } = useXMTPContext()
 
-  const [conversations, setConversations] = useState<any[]>([])
-  const [activeConversation, setActiveConversation] = useState<any>(null)
+  const [conversations, setConversations] = useState<EnhancedConversation[]>([])
+  const [activeConversation, setActiveConversation] = useState<EnhancedConversation | null>(null)
   const [activePeerAddress, setActivePeerAddress] = useState<string>("")
   const [messages, setMessages] = useState<DecodedMessage[]>([])
   const [newMessage, setNewMessage] = useState('')
@@ -28,7 +38,6 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
   const [isSendingMessage, setIsSendingMessage] = useState(false)
   const [showNewConversation, setShowNewConversation] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
   const [showDomainSearch, setShowDomainSearch] = useState(false)
   const [domainSearchQuery, setDomainSearchQuery] = useState('')
 
@@ -37,8 +46,7 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
     data: domainSearchData,
     fetchNextPage: fetchNextDomainPage,
     hasNextPage: hasNextDomainPage,
-    isLoading: isLoadingDomains,
-    error: domainError
+    isLoading: isLoadingDomains
   } = useNames(
     20, // take
     false, // listed
@@ -55,10 +63,14 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
 
     setLoading(true);
     try {
-      const dms = await client.conversations.list();
+      const allConversations = await client.conversations.list();
+      // Filter for DM conversations only, excluding group chats
+      const dms = allConversations.filter((conv) =>
+        'peerInboxId' in conv && typeof conv.peerInboxId === 'function'
+      ) as Dm[];
 
-      const enhancedConversations: any[] = await Promise.all(
-        dms.map(async (dm: any) => {
+      const enhancedConversations: EnhancedConversation[] = await Promise.all(
+        dms.map(async (dm) => {
           const messages = await dm.messages();
           const lastMessage = messages[messages.length - 1];
           
@@ -75,23 +87,28 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
             console.log("peerInboxId method failed, trying members:", error);
           }
 
-          // Method 2: Fallback to members approach (domainline style)
+          // Method 2: Fallback to members approach (matching ImprovedXMTPChat style)
           if (!peerAddress) {
             try {
               const members = await dm.members();
-              peerAddress = members?.[0]?.identifier || "";
+              peerAddress = (members?.[0] as { identifier?: string })?.identifier || "";
             } catch (error) {
               console.log("members method failed:", error);
             }
           }
 
-          // Method 3: Last fallback - check if members is already available
-          if (!peerAddress && dm.members) {
-            peerAddress = dm.members[0]?.identifier || "";
+          // Method 3: Direct members access (fallback)
+          if (!peerAddress) {
+            try {
+              const address = (dm as Dm & { members?: { identifier: string }[] }).members?.[0]?.identifier;
+              if (address) peerAddress = address;
+            } catch (error) {
+              console.log("direct members access failed:", error);
+            }
           }
 
           return {
-            ...dm,
+            id: dm.id,
             peerAddress,
             metadata: {
               lastMessage: typeof lastMessage?.content === "string"
@@ -103,6 +120,7 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
               unreadCount: 0,
               isTyping: false,
             },
+            originalDm: dm,
           };
         })
       );
@@ -185,11 +203,16 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
       const existing = findConversationByPeer(peerAddress);
       if (existing) {
         // Find the original XMTP conversation from the list
-        const originalConversation = await client.conversations.list();
-        const actualConversation = originalConversation.find((c: any) => c.id === existing.id);
+        const originalConversation = await client?.conversations.list();
+        const actualConversation = originalConversation?.find((c) => c.id === existing.id) as Dm;
         
         if (actualConversation) {
-          setActiveConversation(actualConversation); // Use original XMTP object
+          // Create enhanced conversation from existing
+          const enhanced: EnhancedConversation = {
+            ...existing,
+            originalDm: actualConversation
+          };
+          setActiveConversation(enhanced);
           setActivePeerAddress(existing.peerAddress);
           return actualConversation;
         }
@@ -198,8 +221,19 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
       // Create new conversation
       const newConversation = await createConversation(peerAddress);
       if (newConversation) {
-        // Store the actual XMTP conversation object (with send method)
-        setActiveConversation(newConversation);
+        // Create enhanced conversation wrapper
+        const enhanced: EnhancedConversation = {
+          id: newConversation.id,
+          peerAddress,
+          metadata: {
+            lastMessage: undefined,
+            lastMessageTime: undefined,
+            unreadCount: 0,
+            isTyping: false,
+          },
+          originalDm: newConversation
+        };
+        setActiveConversation(enhanced);
         setActivePeerAddress(peerAddress);
         return newConversation;
       }
@@ -209,15 +243,15 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
   );
 
   // Filter conversations based on search query (similar to domainline)
-  const filteredConversations = conversations.filter(conv => {
-    if (!searchQuery.trim()) return true;
-    const lastMessage = conv.metadata?.lastMessage || "";
-    const peerAddress = conv.peerAddress || "";
-    return (
-      lastMessage.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      peerAddress.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  });
+  // const filteredConversations = conversations.filter(conv => {
+  //   if (!searchQuery.trim()) return true;
+  //   const lastMessage = conv.metadata?.lastMessage || "";
+  //   const peerAddress = conv.peerAddress || "";
+  //   return (
+  //     lastMessage.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  //     peerAddress.toLowerCase().includes(searchQuery.toLowerCase())
+  //   );
+  // });
 
 
   // Handle domain search keyboard shortcut
@@ -271,8 +305,8 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
 
     const loadMessages = async () => {
       try {
-        await activeConversation.sync()
-        const msgs = await activeConversation.messages()
+        await activeConversation.originalDm.sync()
+        const msgs = await activeConversation.originalDm.messages()
         setMessages(msgs)
       } catch (err) {
         console.error('Failed to load messages:', err)
@@ -286,12 +320,12 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
   useEffect(() => {
     if (!activeConversation) return
 
-    let streamController: any = null
+    let streamController: { return?: () => void } | null = null
 
     const setupMessageStream = async () => {
       try {
-        streamController = await activeConversation.stream({
-          onValue: (message: any) => {
+        streamController = await activeConversation.originalDm.stream({
+          onValue: (message: DecodedMessage) => {
             if (message && typeof message.content === "string") {
               setMessages(prev => {
                 // Check if message already exists
@@ -302,7 +336,7 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
               });
             }
           },
-          onError: (error: any) => {
+          onError: (error: unknown) => {
             console.error("Message stream error:", error);
           },
         });
@@ -341,17 +375,17 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
     // Debug: Check what methods are available
     console.log('Active conversation object:', activeConversation)
     console.log('Available methods:', Object.getOwnPropertyNames(activeConversation))
-    console.log('Has send method:', typeof activeConversation.send)
+    console.log('Has send method:', typeof activeConversation.originalDm.send)
 
     setIsSendingMessage(true)
     try {
       // Check if send method exists
-      if (typeof activeConversation.send !== 'function') {
-        throw new Error('activeConversation.send is not a function. Object type: ' + typeof activeConversation)
+      if (typeof activeConversation.originalDm.send !== 'function') {
+        throw new Error('activeConversation.originalDm.send is not a function. Object type: ' + typeof activeConversation.originalDm)
       }
 
       // Simple send like domainline - no sync needed
-      await activeConversation.send(newMessage.trim())
+      await activeConversation.originalDm.send(newMessage.trim())
       setNewMessage('')
       console.log('Message sent successfully')
     } catch (err) {
@@ -500,7 +534,7 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
                       </div>
                       <h3 className="text-lg font-medium mb-2 text-white">Searching domains...</h3>
                       <p className="text-sm text-gray-400 max-w-sm">
-                        Looking for domains matching "{domainSearchQuery}"
+                        Looking for domains matching &quot;{domainSearchQuery}&quot;
                       </p>
                     </div>
                   ) : searchedDomains.length === 0 ? (
@@ -513,7 +547,7 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
                       </h3>
                       <p className="text-sm text-gray-400 max-w-sm">
                         {domainSearchQuery
-                          ? `No domains match "${domainSearchQuery}". Try searching with a different term.`
+                          ? `No domains match &quot;${domainSearchQuery}&quot;. Try searching with a different term.`
                           : "Start typing to search for domains and message their owners."}
                       </p>
                       {domainSearchQuery && (
@@ -577,11 +611,16 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
                   key={conversation.id}
                   onClick={async () => {
                     // Get the actual XMTP conversation object
-                    const originalConversations = await client.conversations.list();
-                    const actualConversation = originalConversations.find((c: any) => c.id === conversation.id);
+                    const originalConversations = await client?.conversations.list();
+                    const actualConversation = originalConversations?.find((c) => c.id === conversation.id);
                     
                     if (actualConversation) {
-                      setActiveConversation(actualConversation); // Use original XMTP object
+                      // Create enhanced conversation from existing
+                      const enhanced: EnhancedConversation = {
+                        ...conversation,
+                        originalDm: actualConversation as Dm
+                      };
+                      setActiveConversation(enhanced);
                       setActivePeerAddress(conversation.peerAddress);
                     }
                   }}

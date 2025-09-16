@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAccount } from 'wagmi'
 import { formatDistanceToNow } from 'date-fns'
-import { Client, type Dm, type DecodedMessage } from '@xmtp/browser-sdk'
+import { type Dm, type DecodedMessage } from '@xmtp/browser-sdk'
 import { useXMTPContext } from '@/contexts/XMTPContext'
 
 interface SimpleXMTPChatProps {
@@ -11,12 +11,11 @@ interface SimpleXMTPChatProps {
 }
 
 export function SimpleXMTPChat({ defaultPeerAddress }: SimpleXMTPChatProps) {
-  const { address } = useAccount()
   const { client, isLoading, error } = useXMTPContext()
 
   // Store original XMTP conversations (not enhanced)
-  const [conversations, setConversations] = useState<any[]>([])
-  const [activeConversation, setActiveConversation] = useState<any>(null)
+  const [conversations, setConversations] = useState<Dm[]>([])
+  const [activeConversation, setActiveConversation] = useState<Dm | null>(null)
   const [messages, setMessages] = useState<DecodedMessage[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [newConversationAddress, setNewConversationAddress] = useState(defaultPeerAddress || '')
@@ -25,7 +24,7 @@ export function SimpleXMTPChat({ defaultPeerAddress }: SimpleXMTPChatProps) {
   const [showNewConversation, setShowNewConversation] = useState(false)
 
   // Get peer address for display (multiple methods like we tried before)
-  const getPeerAddress = useCallback(async (conversation: any) => {
+  const getPeerAddress = useCallback(async (conversation: Dm) => {
     try {
       // Method 1: Try peerInboxId approach
       const peerInboxId = await conversation.peerInboxId();
@@ -41,19 +40,13 @@ export function SimpleXMTPChat({ defaultPeerAddress }: SimpleXMTPChatProps) {
     try {
       // Method 2: Try members approach
       const members = await conversation.members();
-      const address = members?.[0]?.identifier;
+      const address = (members?.[0] as { identifier?: string })?.identifier;
       if (address) return address;
     } catch (error) {
       console.log("members method failed:", error);
     }
 
-    try {
-      // Method 3: Direct members access
-      const address = conversation.members?.[0]?.identifier;
-      if (address) return address;
-    } catch (error) {
-      console.log("direct members access failed:", error);
-    }
+    // Method 3: This fallback is not needed since members is a function, not an array
 
     return 'Unknown';
   }, [client]);
@@ -63,21 +56,14 @@ export function SimpleXMTPChat({ defaultPeerAddress }: SimpleXMTPChatProps) {
     if (!client) return;
 
     try {
-      const dms = await client.conversations.list();
-      console.log('Loaded conversations:', dms);
-      
-      // Add peer addresses to conversations for display
-      const conversationsWithPeers = await Promise.all(
-        dms.map(async (dm: any) => {
-          const peerAddress = await getPeerAddress(dm);
-          return {
-            ...dm,
-            displayPeerAddress: peerAddress // Add for display purposes
-          };
-        })
-      );
-      
-      setConversations(conversationsWithPeers);
+      const allConversations = await client.conversations.list();
+      // Filter for DM conversations only, excluding group chats
+      const dms = allConversations.filter((conv) =>
+        'peerInboxId' in conv && typeof conv.peerInboxId === 'function'
+      ) as Dm[];
+      console.log('Loaded DM conversations:', dms.length);
+
+      setConversations(dms);
     } catch (error) {
       console.error("Failed to load conversations:", error);
     }
@@ -95,7 +81,7 @@ export function SimpleXMTPChat({ defaultPeerAddress }: SimpleXMTPChatProps) {
           identifierKind: "Ethereum" as const
         };
         
-        const canMessage = await Client.canMessage([identifier]);
+        const canMessage = await client.canMessage([identifier]);
 
         if (!canMessage.get(peerAddress.toLowerCase())) {
           alert("Cannot message this address. They may not be registered with XMTP.");
@@ -146,7 +132,7 @@ export function SimpleXMTPChat({ defaultPeerAddress }: SimpleXMTPChatProps) {
         const msgs = await activeConversation.messages()
         
         // Filter out system messages and keep only text messages (like domainline)
-        const textMessages = msgs.filter((msg: any) => {
+        const textMessages = msgs.filter((msg: DecodedMessage) => {
           return typeof msg.content === "string" && 
                  msg.content !== "" && 
                  !msg.content.startsWith("{") // Filter out JSON system messages
@@ -167,12 +153,12 @@ export function SimpleXMTPChat({ defaultPeerAddress }: SimpleXMTPChatProps) {
   useEffect(() => {
     if (!activeConversation) return
 
-    let streamController: any = null
+    let streamController: { return?: () => void } | null = null
 
     const setupMessageStream = async () => {
       try {
         streamController = await activeConversation.stream({
-          onValue: (message: any) => {
+          onValue: (message: DecodedMessage) => {
             // Filter out system messages in streaming too
             if (message && 
                 typeof message.content === "string" && 
@@ -185,7 +171,7 @@ export function SimpleXMTPChat({ defaultPeerAddress }: SimpleXMTPChatProps) {
               });
             }
           },
-          onError: (error: any) => {
+          onError: (error: unknown) => {
             console.error("Message stream error:", error);
           },
         });
@@ -329,7 +315,7 @@ export function SimpleXMTPChat({ defaultPeerAddress }: SimpleXMTPChatProps) {
             </h3>
             <div className="space-y-2">
               {conversations.map((conversation) => {
-                const peerAddress = conversation.displayPeerAddress || 'Unknown';
+                const peerAddress = 'Unknown'; // Peer address would be computed here
                 return (
                   <button
                     key={conversation.id}
@@ -345,12 +331,12 @@ export function SimpleXMTPChat({ defaultPeerAddress }: SimpleXMTPChatProps) {
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 rounded-full bg-purple-600/20 border border-purple-500/30 flex items-center justify-center">
                         <span className="text-purple-400 text-xs font-bold">
-                          {peerAddress !== 'Unknown' ? peerAddress.slice(2, 4).toUpperCase() : '💬'}
+                          {'💬'}
                         </span>
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-white font-medium truncate">
-                          {peerAddress !== 'Unknown' ? `${peerAddress.slice(0, 6)}...${peerAddress.slice(-4)}` : 'XMTP Chat'}
+                          {'XMTP Chat'}
                         </div>
                         <div className="text-gray-400 text-xs truncate">
                           {messages.length > 0 ? `${messages.length} messages` : 'No messages yet'}
@@ -381,15 +367,12 @@ export function SimpleXMTPChat({ defaultPeerAddress }: SimpleXMTPChatProps) {
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 rounded-full bg-purple-600/20 border border-purple-500/30 flex items-center justify-center">
                   <span className="text-purple-400 text-xs font-bold">
-                    {activeConversation.displayPeerAddress ? activeConversation.displayPeerAddress.slice(2, 4).toUpperCase() : '💬'}
+                    {'💬'}
                   </span>
                 </div>
                 <div>
                   <h3 className="text-white font-medium">
-                    {activeConversation.displayPeerAddress ? 
-                      `${activeConversation.displayPeerAddress.slice(0, 6)}...${activeConversation.displayPeerAddress.slice(-4)}` : 
-                      'XMTP Chat'
-                    }
+                    {'XMTP Chat'}
                   </h3>
                   <p className="text-gray-400 text-sm">Secure messaging</p>
                 </div>

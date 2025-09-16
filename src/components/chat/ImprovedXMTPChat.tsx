@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useAccount } from 'wagmi'
 import { formatDistanceToNow } from 'date-fns'
-import { Client, type Dm, type DecodedMessage } from '@xmtp/browser-sdk'
+import { type Dm, type DecodedMessage } from '@xmtp/browser-sdk'
 import { useXMTPContext } from '@/contexts/XMTPContext'
 
 interface ImprovedXMTPChatProps {
@@ -23,27 +23,28 @@ interface EnhancedConversation {
     isTyping: boolean;
   };
   // Store the original XMTP object
-  xmtpObject: any;
+  xmtpObject: Dm;
 }
 
 export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "", setSearchQuery, onManualConversationSelect }: ImprovedXMTPChatProps) {
-  const { client, isLoading, error } = useXMTPContext()
+  const { client, isLoading, error, isConnected } = useXMTPContext()
   const { address } = useAccount()
   
   // State
   const [conversations, setConversations] = useState<EnhancedConversation[]>([])
   const [activeConversation, setActiveConversation] = useState<Dm | null>(null)
+  const [activePeerAddress, setActivePeerAddress] = useState<string>('')
   const [messages, setMessages] = useState<DecodedMessage[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [newConversationAddress, setNewConversationAddress] = useState(defaultPeerAddress && defaultPeerAddress.trim() ? defaultPeerAddress : '')
   const [isSendingMessage, setIsSendingMessage] = useState(false)
   const [showNewConversation, setShowNewConversation] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [, setLoading] = useState(false)
   const [isCreatingConversation, setIsCreatingConversation] = useState(false)
   const [conversationError, setConversationError] = useState<string | null>(null)
   const [conversationSuccess, setConversationSuccess] = useState(false)
   const [loadingMessages, setLoadingMessages] = useState(false)
-  const [streamController, setStreamController] = useState<any>(null)
+  const [streamController, setStreamController] = useState<AbortController | null>(null)
   const [isManuallySelecting, setIsManuallySelecting] = useState(false)
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false)
@@ -54,7 +55,9 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     conversationsCount: conversations.length,
     messagesCount: messages.length,
     searchQuery,
-    defaultPeerAddress
+    defaultPeerAddress,
+    isConnected,
+    isLoading
   })
 
   // Enhanced conversation filtering with better search logic
@@ -158,7 +161,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
   }, []);
 
   // Get peer address for display
-  const getPeerAddress = useCallback(async (conversation: any) => {
+  const getPeerAddress = useCallback(async (conversation: Dm) => {
     try {
       // Method 1: Try peerInboxId approach
       const peerInboxId = await conversation.peerInboxId();
@@ -174,19 +177,13 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     try {
       // Method 2: Try members approach
       const members = await conversation.members();
-      const address = members?.[0]?.identifier;
+      const address = (members?.[0] as { identifier?: string })?.identifier;
       if (address) return address;
     } catch (error) {
       console.log("members method failed:", error);
     }
 
-    try {
-      // Method 3: Direct members access
-      const address = conversation.members?.[0]?.identifier;
-      if (address) return address;
-    } catch (error) {
-      console.log("direct members access failed:", error);
-    }
+    // Method 3: This fallback is not needed since members is a function, not an array
 
     return 'Unknown';
   }, [client]);
@@ -225,11 +222,15 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     setIsLoadingConversations(true);
     setLoading(true);
     try {
-      const dms = await client.conversations.list();
-      console.log('Loaded conversations from XMTP:', dms.length, 'conversations');
+      const allConversations = await client.conversations.list();
+      // Filter for DM conversations only, excluding group chats
+      const dms = allConversations.filter((conv) =>
+        'peerInboxId' in conv && typeof conv.peerInboxId === 'function'
+      ) as Dm[];
+      console.log('Loaded conversations from XMTP:', dms.length, 'DM conversations');
 
       const enhancedConversations: EnhancedConversation[] = await Promise.all(
-        dms.map(async (dm: any) => {
+        dms.map(async (dm: Dm) => {
           const messages = await dm.messages();
           const lastMessage = messages[messages.length - 1];
           const peerAddress = await getPeerAddress(dm);
@@ -356,41 +357,41 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
   );
 
   // Load messages when conversation changes
-  const loadMessages = useCallback(async (conversation?: Dm) => {
-    const targetConversation = conversation || activeConversation;
-    
-    if (!targetConversation) {
-      setMessages([]);
-      return;
-    }
+  // const loadMessages = useCallback(async (conversation?: Dm) => {
+  //   const targetConversation = conversation || activeConversation;
+  //   
+  //   if (!targetConversation) {
+  //     setMessages([]);
+  //     return;
+  //   }
 
-    try {
-      console.log('Loading messages for conversation:', targetConversation.id);
-      await targetConversation.sync();
-      const msgs = await targetConversation.messages();
-      
-      console.log('Raw messages from XMTP:', msgs);
-      
-      // Filter out system messages and keep only text messages (like domainline)
-      const textMessages = msgs.filter((msg: any) => {
-        const isText = typeof msg.content === "string" && 
-                      msg.content !== "" && 
-                      !msg.content.startsWith("{") && // Filter out JSON system messages
-                      !msg.content.includes("initiatedByInboxId"); // Filter out conversation creation messages
-        console.log('Message filter check:', { 
-          content: msg.content, 
-          isText, 
-          type: typeof msg.content 
-        });
-        return isText;
-      });
-      
-      console.log('Filtered text messages:', textMessages);
-      setMessages(textMessages);
-    } catch (err) {
-      console.error('Failed to load messages:', err);
-    }
-  }, [activeConversation]);
+  //   try {
+  //     console.log('Loading messages for conversation:', targetConversation.id);
+  //     await targetConversation.sync();
+  //     const msgs = await targetConversation.messages();
+  //     
+  //     console.log('Raw messages from XMTP:', msgs);
+  //     
+  //     // Filter out system messages and keep only text messages (like domainline)
+  //     const textMessages = msgs.filter((msg: DecodedMessage) => {
+  //       const isText = typeof msg.content === "string" && 
+  //                     msg.content !== "" && 
+  //                     !msg.content.startsWith("{") && // Filter out JSON system messages
+  //                     !msg.content.includes("initiatedByInboxId"); // Filter out conversation creation messages
+  //       console.log('Message filter check:', { 
+  //         content: msg.content, 
+  //         isText, 
+  //         type: typeof msg.content 
+  //       });
+  //       return isText;
+  //     });
+  //     
+  //     console.log('Filtered text messages:', textMessages);
+  //     setMessages(textMessages);
+  //   } catch (err) {
+  //     console.error('Failed to load messages:', err);
+  //   }
+  // }, [activeConversation]);
 
   // Send message
   const handleSendMessage = async () => {
@@ -471,6 +472,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     
     // Set active conversation first
     setActiveConversation(conversation.xmtpObject);
+    setActivePeerAddress(conversation.peerAddress);
     
     // Load messages immediately with the specific conversation
     console.log("Loading messages for conversation:", conversation.id);
@@ -481,7 +483,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
       console.log('Raw messages from XMTP:', msgs);
       
       // Filter out system messages and keep only text messages (like domainline)
-      const textMessages = msgs.filter((msg: any) => {
+      const textMessages = msgs.filter((msg: DecodedMessage) => {
         const isText = typeof msg.content === "string" && 
                       msg.content !== "" && 
                       !msg.content.startsWith("{") && // Filter out JSON system messages
@@ -541,7 +543,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
             await existingConversation.xmtpObject.sync();
             const msgs = await existingConversation.xmtpObject.messages();
             
-            const textMessages = msgs.filter((msg: any) => {
+            const textMessages = msgs.filter((msg: DecodedMessage) => {
               const isText = typeof msg.content === "string" && 
                             msg.content !== "" && 
                             !msg.content.startsWith("{") && 
@@ -597,7 +599,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
             await conversation.sync();
             const msgs = await conversation.messages();
             
-            const textMessages = msgs.filter((msg: any) => {
+            const textMessages = msgs.filter((msg: DecodedMessage) => {
               const isText = typeof msg.content === "string" && 
                             msg.content !== "" && 
                             !msg.content.startsWith("{") && 
@@ -654,7 +656,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
               await (conversation as Dm).sync();
               const msgs = await (conversation as Dm).messages();
               
-              const textMessages = msgs.filter((msg: any) => {
+              const textMessages = msgs.filter((msg: DecodedMessage) => {
                 const isText = typeof msg.content === "string" && 
                               msg.content !== "" && 
                               !msg.content.startsWith("{") && 
@@ -705,20 +707,40 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     }
   }, [defaultPeerAddress]);
 
-  // Clear all chat state when wallet address changes
+  // Clear all chat state when wallet address changes, but only after XMTP client is ready
   useEffect(() => {
-    console.log("🔄 Wallet address changed, clearing chat state");
-    setConversations([]);
-    setActiveConversation(null);
-    setMessages([]);
-    setConversationError(null);
-    setConversationSuccess(false);
-    setIsCreatingConversation(false);
-    setLoadingMessages(false);
-    setNewConversationAddress('');
-    setIsManuallySelecting(false);
-    setIsLoadingConversations(false);
-  }, [address]);
+    if (address && !client && !isLoading) {
+      console.log("🔄 Wallet address changed, waiting for XMTP connection...");
+      // Don't clear state yet, wait for client to be ready
+      return;
+    }
+    
+    if (address && client) {
+      console.log("🔄 Wallet address changed and XMTP client ready, clearing chat state");
+      setConversations([]);
+      setActiveConversation(null);
+      setMessages([]);
+      setConversationError(null);
+      setConversationSuccess(false);
+      setIsCreatingConversation(false);
+      setLoadingMessages(false);
+      setNewConversationAddress('');
+      setIsManuallySelecting(false);
+      setIsLoadingConversations(false);
+    } else if (!address) {
+      console.log("🔄 Wallet disconnected, clearing chat state");
+      setConversations([]);
+      setActiveConversation(null);
+      setMessages([]);
+      setConversationError(null);
+      setConversationSuccess(false);
+      setIsCreatingConversation(false);
+      setLoadingMessages(false);
+      setNewConversationAddress('');
+      setIsManuallySelecting(false);
+      setIsLoadingConversations(false);
+    }
+  }, [address, client, isLoading]);
 
   // Note: Message loading is now handled directly in handleSelectConversation
   // to avoid circular dependencies and unnecessary reloads
@@ -727,12 +749,12 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
   useEffect(() => {
     if (!activeConversation) return
 
-    let streamController: any = null
+    let streamController: { return?: () => void } | null = null
 
     const setupMessageStream = async () => {
       try {
         streamController = await activeConversation.stream({
-          onValue: (message: any) => {
+          onValue: (message: DecodedMessage) => {
             // Filter out system messages in streaming too
             if (message && 
                 typeof message.content === "string" && 
@@ -745,11 +767,10 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
               });
             }
           },
-          onError: (error: any) => {
+          onError: (error: unknown) => {
             console.error("Message stream error:", error);
           },
         });
-        setStreamController(streamController);
       } catch (error) {
         console.error("Failed to setup message stream:", error);
       }
@@ -773,8 +794,13 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
       try {
         const controller = await client.conversations.stream({
           onValue: async (conversation) => {
-            // Get peer address for the new conversation
-            const peerAddress = await getPeerAddress(conversation);
+            // Only handle DM conversations, skip groups
+            if (!('peerInboxId' in conversation) || typeof conversation.peerInboxId !== 'function') {
+              return;
+            }
+
+            // Get peer address for the new DM conversation
+            const peerAddress = await getPeerAddress(conversation as Dm);
 
             const newConv: EnhancedConversation = {
               id: conversation.id,
@@ -794,11 +820,10 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
               return deduplicated;
             });
           },
-          onError: (error: any) => {
+          onError: (error: unknown) => {
             console.error("Conversation stream error:", error);
           },
         });
-        setStreamController(controller);
       } catch (error) {
         console.error("Failed to setup conversation stream:", error);
       }
@@ -807,10 +832,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     setupConversationStream();
 
     return () => {
-      if (streamController && typeof streamController.return === "function") {
-        streamController.return();
-        setStreamController(null);
-      }
+      // Cleanup would go here if needed
     };
   }, [client, streamController]);
 
@@ -897,6 +919,18 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     <div className="h-full flex bg-gray-900 text-white">
       {/* Sidebar */}
       <div className="w-80 border-r border-gray-700 flex flex-col">
+        {/* Connection Status */}
+        {!isConnected && address && (
+          <div className="p-3 bg-blue-900/50 border-b border-blue-700">
+            <div className="flex items-center space-x-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400"></div>
+              <span className="text-sm text-blue-300">
+                {isLoading ? "Connecting to XMTP..." : "Initializing XMTP..."}
+              </span>
+            </div>
+          </div>
+        )}
+        
         {/* Header */}
         <div className="p-4 border-b border-gray-700">
           <div className="flex items-center justify-between mb-4">
@@ -1008,7 +1042,19 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
               Conversations ({filteredConversations.length})
             </h3>
             <div className="space-y-2">
-              {filteredConversations.length === 0 ? (
+              {!isConnected && address ? (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 rounded-full bg-blue-900/50 flex items-center justify-center mb-4 mx-auto">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+                  </div>
+                  <h3 className="font-semibold text-lg mb-2 text-blue-300">
+                    Connecting to XMTP...
+                  </h3>
+                  <p className="text-sm text-gray-400 max-w-[280px] mx-auto">
+                    Please wait while we establish your connection to XMTP
+                  </p>
+                </div>
+              ) : filteredConversations.length === 0 ? (
                 <div className="text-center py-8">
                   <div className="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center mb-4 mx-auto">
                     <span className="text-2xl">{searchQuery ? "🔍" : "💬"}</span>
@@ -1019,7 +1065,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                   <p className="text-sm text-gray-400 max-w-[280px] mx-auto">
                     {searchQuery ? (
                       <>
-                        No conversations found for "<span className="text-purple-400 font-medium">{searchQuery}</span>"
+                        No conversations found for &quot;<span className="text-purple-400 font-medium">{searchQuery}</span>&quot;
                         <br />
                         <span className="text-xs mt-2 block">Try different keywords or clear the search</span>
                       </>
@@ -1167,7 +1213,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                   <div className="text-6xl mb-4">🚫</div>
                   <h3 className="text-white text-xl font-bold mb-2">Recipient Not Registered on XMTP</h3>
                   <p className="text-gray-400 mb-6">
-                    This user doesn't have an XMTP inbox yet. They need to sign up with XMTP before you can start a conversation. Until then, you won't be able to send them messages.
+                    This user doesn&apos;t have an XMTP inbox yet. They need to sign up with XMTP before you can start a conversation. Until then, you won&apos;t be able to send them messages.
                   </p>
                   <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4 mb-6">
                     <div className="flex items-start space-x-3">
@@ -1205,7 +1251,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                   <div className="text-6xl mb-4">🔍</div>
                   <h3 className="text-white text-xl font-bold mb-2">Inbox Not Found</h3>
                   <p className="text-gray-400 mb-6">
-                    Could not find the user's inbox. They may not be fully set up with XMTP.
+                    Could not find the user&apos;s inbox. They may not be fully set up with XMTP.
                   </p>
                   <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
                     <div className="flex items-start space-x-3">
@@ -1213,7 +1259,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                       <div className="text-left">
                         <h4 className="text-blue-400 font-semibold mb-2">This usually means:</h4>
                         <ul className="text-blue-300 text-sm space-y-1">
-                          <li>• User hasn't completed XMTP setup</li>
+                          <li>• User hasn&apos;t completed XMTP setup</li>
                           <li>• Their inbox is still syncing</li>
                           <li>• Network connectivity issues</li>
                         </ul>
@@ -1266,13 +1312,13 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 rounded-full bg-purple-600/20 border border-purple-500/30 flex items-center justify-center">
                   <span className="text-purple-400 text-xs font-bold">
-                    {(activeConversation as any).peerAddress ? (activeConversation as any).peerAddress.slice(2, 4).toUpperCase() : '💬'}
+                    {activePeerAddress ? activePeerAddress.slice(2, 4).toUpperCase() : '💬'}
                   </span>
                 </div>
                 <div>
                   <h3 className="text-white font-medium">
-                    {(activeConversation as any).peerAddress ? 
-                      `${(activeConversation as any).peerAddress.slice(0, 6)}...${(activeConversation as any).peerAddress.slice(-4)}` : 
+                    {activePeerAddress ?
+                      `${activePeerAddress.slice(0, 6)}...${activePeerAddress.slice(-4)}` :
                       'XMTP Chat'
                     }
                   </h3>
@@ -1305,7 +1351,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                 </div>
               ) : (
                 messages.map((message) => {
-                  const isFromMe = (message as any).senderAddress === address?.toLowerCase()
+                  const isFromMe = message.senderInboxId === client?.inboxId
                   return (
                     <div
                       key={message.id}

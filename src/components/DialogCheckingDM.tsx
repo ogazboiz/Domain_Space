@@ -8,12 +8,14 @@ interface DialogCheckingDMProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   userAddress?: string;
+  onDMCreated?: (dmId: string, userAddress: string) => void;
 }
 
 const DialogCheckingDM: React.FC<DialogCheckingDMProps> = ({
   open,
   onOpenChange,
   userAddress,
+  onDMCreated,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [canSentMessage, setCanSentMessage] = useState<boolean>(false);
@@ -33,9 +35,17 @@ const DialogCheckingDM: React.FC<DialogCheckingDMProps> = ({
 
         // Find existing conversation with this peer
         for (const conv of allConversations || []) {
-          if (conv.peerInboxId === inboxId) {
-            existingConversation = conv;
-            break;
+          // Check if it's a DM (has peerInboxId property) and matches the inbox ID
+          if ('peerInboxId' in conv && typeof conv.peerInboxId === 'function') {
+            try {
+              const peerInboxId = await conv.peerInboxId();
+              if (peerInboxId === inboxId) {
+                existingConversation = conv;
+                break;
+              }
+            } catch (error) {
+              console.log("Failed to get peerInboxId:", error);
+            }
           }
         }
 

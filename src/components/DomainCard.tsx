@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { formatUnits } from "viem";
+// import { formatUnits } from "viem";
 import { Name } from "@/types/doma";
 
 interface DomainCardProps {
