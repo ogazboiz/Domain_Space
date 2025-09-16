@@ -10,6 +10,7 @@ interface ImprovedXMTPChatProps {
   defaultPeerAddress?: string;
   searchQuery?: string;
   setSearchQuery?: (query: string) => void;
+  onManualConversationSelect?: () => void;
 }
 
 interface EnhancedConversation {
@@ -25,7 +26,7 @@ interface EnhancedConversation {
   xmtpObject: any;
 }
 
-export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "", setSearchQuery }: ImprovedXMTPChatProps) {
+export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "", setSearchQuery, onManualConversationSelect }: ImprovedXMTPChatProps) {
   const { client, isLoading, error } = useXMTPContext()
   const { address } = useAccount()
   
@@ -34,7 +35,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
   const [activeConversation, setActiveConversation] = useState<Dm | null>(null)
   const [messages, setMessages] = useState<DecodedMessage[]>([])
   const [newMessage, setNewMessage] = useState('')
-  const [newConversationAddress, setNewConversationAddress] = useState(defaultPeerAddress || '')
+  const [newConversationAddress, setNewConversationAddress] = useState(defaultPeerAddress && defaultPeerAddress.trim() ? defaultPeerAddress : '')
   const [isSendingMessage, setIsSendingMessage] = useState(false)
   const [showNewConversation, setShowNewConversation] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -410,15 +411,20 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
   // Handle conversation selection
   const handleSelectConversation = async (conversation: EnhancedConversation) => {
     console.log("Selecting conversation:", conversation.id, "xmtpObject:", conversation.xmtpObject);
-    
+
     // Don't reload if it's already the active conversation
     if (activeConversation?.id === conversation.id) {
       console.log("Conversation already active, skipping reload");
       return;
     }
-    
+
     // Set manual selection flag to prevent auto-create effect from interfering
     setIsManuallySelecting(true);
+
+    // Notify parent that user manually selected a conversation (clear defaultPeerAddress)
+    if (onManualConversationSelect) {
+      onManualConversationSelect();
+    }
     
     // Clear any error states and messages immediately
     setConversationError(null);
@@ -475,15 +481,15 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
 
   // Auto-create conversation when defaultPeerAddress is provided (like domainline)
   useEffect(() => {
-    console.log("🔄 Auto-create effect triggered", { 
-      defaultPeerAddress, 
-      hasClient: !!client, 
-      activeConversationId: activeConversation?.id 
+    console.log("🔄 Auto-create effect triggered", {
+      defaultPeerAddress,
+      hasClient: !!client,
+      activeConversationId: activeConversation?.id
     });
-    
-    // Only run if we have a defaultPeerAddress and client, and no active conversation
-    // This prevents running when manually selecting conversations
-    if (defaultPeerAddress && client && !activeConversation && !isManuallySelecting) {
+
+    // Only run if we have a VALID defaultPeerAddress and client, and no active conversation
+    // This prevents running when manually selecting conversations or when defaultPeerAddress is empty
+    if (defaultPeerAddress && defaultPeerAddress.trim() && client && !activeConversation && !isManuallySelecting) {
       const createConversationForPeer = async () => {
         // Check if we already have a conversation with this peer
         console.log("🔍 Looking for existing conversation with:", defaultPeerAddress);
@@ -598,8 +604,9 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     const params = new URLSearchParams(window.location.search);
     const dmId = params.get("dm");
     const sender = params.get("sender");
-    
-    if (dmId && sender && client && !defaultPeerAddress) {
+
+    // Only load from URL if there's no valid defaultPeerAddress (avoids conflicts)
+    if (dmId && sender && client && (!defaultPeerAddress || !defaultPeerAddress.trim())) {
       const loadConversationFromUrl = async () => {
         try {
           console.log("Loading conversation from URL:", { dmId, sender });
@@ -646,6 +653,23 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
       setConversations([]);
     }
   }, [client]);
+
+  // Clear active conversation when defaultPeerAddress becomes empty to prevent invalid state
+  useEffect(() => {
+    if (!defaultPeerAddress || !defaultPeerAddress.trim()) {
+      console.log("🧹 Clearing active conversation due to empty defaultPeerAddress");
+      setActiveConversation(null);
+      setMessages([]);
+      setConversationError(null);
+      setConversationSuccess(false);
+      setIsCreatingConversation(false);
+      setLoadingMessages(false);
+      setNewConversationAddress('');
+    } else if (defaultPeerAddress && defaultPeerAddress.trim()) {
+      // Update newConversationAddress when defaultPeerAddress changes to a valid value
+      setNewConversationAddress(defaultPeerAddress);
+    }
+  }, [defaultPeerAddress]);
 
   // Note: Message loading is now handled directly in handleSelectConversation
   // to avoid circular dependencies and unnecessary reloads
@@ -770,7 +794,8 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
 
   // Auto-select conversation when defaultPeerAddress changes and conversations are loaded
   useEffect(() => {
-    if (!defaultPeerAddress || !conversations.length || isManuallySelecting) return;
+    // Only run if we have a VALID defaultPeerAddress, conversations, and not manually selecting
+    if (!defaultPeerAddress || !defaultPeerAddress.trim() || !conversations.length || isManuallySelecting) return;
 
     console.log('🔍 Looking for conversation with defaultPeerAddress:', defaultPeerAddress);
 

@@ -470,10 +470,10 @@ export default function DomainMarketplace() {
   }), [searchQuery, tldFilter, statusFilter, priceFilter]);
 
   // Browse domains hook with optimized parameters
-  const { 
-    data: browseDomainsData, 
-    fetchNextPage: fetchNextBrowsePage, 
-    hasNextPage: hasNextBrowse, 
+  const {
+    data: browseDomainsData,
+    fetchNextPage: fetchNextBrowsePage,
+    hasNextPage: hasNextBrowse,
     isLoading: isLoadingBrowse,
     error: browseError
   } = useNames(
@@ -523,7 +523,7 @@ export default function DomainMarketplace() {
   // Memoized domain processing
   const browseDomains = useMemo(() => {
     if (!browseDomainsData?.pages) return [];
-    
+
     return browseDomainsData.pages.flatMap(page => page.items);
   }, [browseDomainsData]);
 
@@ -604,14 +604,33 @@ export default function DomainMarketplace() {
     setSelectedDomain(null);
   }, []);
 
-  const handleDMCreated = useCallback((dmId: string, userAddress: string) => {
-    console.log('DM created successfully:', { dmId, userAddress });
-    // Switch to chat tab to show the new conversation
-    setActiveTab("chat");
-    // You can add additional logic here to highlight the new conversation
+  // Listen for conversation created events
+  useEffect(() => {
+    const handleConversationCreated = (event: CustomEvent) => {
+      const { conversationId, userAddress } = event.detail;
+      console.log('DM created successfully:', { conversationId, userAddress });
+      // Close the checking dialog
+      setShowCheckingDM(false);
+      // Switch to chat tab to show the new conversation
+      setActiveTab("chat");
+      // Set the selected user address to ensure the conversation is shown
+      setSelectedUserAddress(userAddress);
+      console.log('✅ Switched to chat with conversation:', conversationId);
+    };
+
+    window.addEventListener('conversationCreated', handleConversationCreated as EventListener);
+    return () => {
+      window.removeEventListener('conversationCreated', handleConversationCreated as EventListener);
+    };
   }, []);
 
-  // Handle domain search in chat tab (simplified like browse domains)
+  // Handle manual conversation selection - clear selectedUserAddress to prevent auto-switching back
+  const handleManualConversationSelect = useCallback(() => {
+    console.log('🔄 User manually selected a conversation, clearing selectedUserAddress');
+    setSelectedUserAddress('');
+  }, []);
+
+  // Handle domain search in chat tab - start conversation with domain owner
   const handleChatDomainMessage = useCallback((domain: Name) => {
     if (!domain.claimedBy) {
       alert("This domain is not owned by anyone yet.");
@@ -631,13 +650,14 @@ export default function DomainMarketplace() {
       currentSelectedUser: selectedUserAddress
     });
 
-    // Set the owner address directly (like browse domains do)
+    // Set the owner address and show XMTP checking dialog
     setSelectedUserAddress(ownerAddress);
+    setShowCheckingDM(true);
     setChatDomainSearchQuery('');
     setShowChatDomainSearch(false);
 
-    // The ImprovedXMTPChat component will automatically handle conversation creation
-    console.log('✅ Set selected user address to:', ownerAddress);
+    console.log('✅ Opening XMTP check dialog for user:', ownerAddress);
+    console.log('🔧 Dialog state - showCheckingDM:', true, 'selectedUserAddress:', ownerAddress);
   }, [selectedUserAddress]);
 
   // Click outside handler for chat domain search dropdown
@@ -925,9 +945,10 @@ export default function DomainMarketplace() {
         return (
           <div className="h-full w-full">
             <ImprovedXMTPChat
-              defaultPeerAddress={selectedUserAddress}
+              defaultPeerAddress={showCheckingDM ? '' : selectedUserAddress}
               searchQuery={chatSearchQuery}
               setSearchQuery={setChatSearchQuery}
+              onManualConversationSelect={handleManualConversationSelect}
             />
           </div>
         );
@@ -1082,7 +1103,6 @@ export default function DomainMarketplace() {
         open={showCheckingDM}
         onOpenChange={setShowCheckingDM}
         userAddress={selectedUserAddress}
-        onDMCreated={handleDMCreated}
       />
     </section>
   );
