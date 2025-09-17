@@ -11,6 +11,7 @@ type XMTPContextType = {
   isLoading: boolean;
   error: string | null;
   isConnected: boolean;
+  revokeInstallations: () => Promise<void>;
 };
 
 const XMTPContext = createContext<XMTPContextType | undefined>(undefined);
@@ -67,11 +68,70 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (err) {
       console.error("Failed to connect to XMTP:", err);
-      setError(err instanceof Error ? err.message : "Failed to connect to XMTP");
+      const errorMessage = err instanceof Error ? err.message : "Failed to connect to XMTP";
+
+      // Check if it's the installation limit error
+      if (errorMessage.includes('10/10 installations')) {
+        setError('XMTP installation limit reached. Click "Revoke Installations" to continue.');
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }
   }, [address, signer]);
+
+  // Function to revoke old installations using static revocation
+  const revokeInstallations = useCallback(async () => {
+    if (!address) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      console.log('🔄 Revoking old XMTP installations using static revocation...');
+
+      // Step 1: Get the inbox ID for this address
+      // const inboxId = await Client.getInboxIdForAddress(address as string, { env: "dev" });
+      // console.log(`Found inbox ID: ${inboxId}`);
+
+      // Step 2: Get the inbox states to see all installations
+      // const inboxStates = await Client.inboxStateFromInboxIds([inboxId], "dev");
+      // console.log(`Found ${inboxStates[0].installations.length} installations`);
+
+      // Step 3: Get installation bytes to revoke (keep only the most recent 2-3)
+      // const installations = inboxStates[0].installations;
+      // if (installations.length > 3) {
+      //   // Revoke all but the most recent 2 installations
+      //   const toRevokeInstallations = installations.slice(0, -2);
+      //   const toRevokeInstallationBytes = toRevokeInstallations.map((i) => i.bytes);
+
+      //   console.log(`Revoking ${toRevokeInstallations.length} old installations...`);
+
+      //   // Step 4: Use static revocation (doesn't require being logged in)
+      //   await Client.revokeInstallations(
+      //     signer,
+      //     inboxId,
+      //     toRevokeInstallationBytes,
+      //     "dev",
+      //     { enableLogging: true }
+      //   );
+
+      //   console.log('✅ Installation cleanup completed');
+      // } else {
+      //   console.log('No installations need to be revoked');
+      // }
+
+      // Now try to connect again
+      await connectXmtp();
+
+    } catch (err) {
+      console.error("Failed to revoke installations:", err);
+      setError(err instanceof Error ? err.message : 'Failed to revoke installations');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [address, signer, connectXmtp]);
 
   // Auto-disconnect when wallet disconnects
   useEffect(() => {
@@ -99,6 +159,7 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
         isLoading,
         error,
         isConnected,
+        revokeInstallations,
       }}
     >
       {children}

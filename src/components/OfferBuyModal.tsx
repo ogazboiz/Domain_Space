@@ -9,13 +9,14 @@ import {
   CreateOfferParams,
   BuyListingParams,
   CurrencyToken,
+  OrderbookType,
 } from "@doma-protocol/orderbook-sdk";
 
 interface OfferBuyModalProps {
   domain: Name | null;
   isOpen: boolean;
   onClose: () => void;
-  onSuccess?: (type: 'buy' | 'offer', result: any) => void;
+  onSuccess?: (type: 'buy' | 'offer', result: unknown) => void;
 }
 
 export default function OfferBuyModal({
@@ -56,7 +57,7 @@ export default function OfferBuyModal({
           // Get supported currencies
           await getSupportedCurrencies({
             chainId: domainData.chainId,
-            orderbook: domainData.listings[0].orderbook,
+            orderbook: domainData.listings[0].orderbook as OrderbookType,
             contractAddress: domainData.tokenAddress,
           });
 
@@ -64,7 +65,7 @@ export default function OfferBuyModal({
           await getOrderbookFee({
             chainId: domainData.chainId,
             contractAddress: domainData.tokenAddress,
-            orderbook: domainData.listings[0].orderbook,
+            orderbook: domainData.listings[0].orderbook as OrderbookType,
           });
         }
       } catch (err) {
@@ -137,7 +138,7 @@ export default function OfferBuyModal({
             duration: durationMs,
           },
         ],
-        orderbook: 'doma',
+        orderbook: OrderbookType.DOMA,
         source: 'domain-space',
         marketplaceFees: fees,
       };

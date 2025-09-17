@@ -1,6 +1,10 @@
+"use client";
+
 import Header from './Header';
+import { useRouter } from 'next/navigation';
 
 export default function Hero() {
+  const router = useRouter();
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -57,10 +61,14 @@ export default function Hero() {
                   letterSpacing: '0%'
                 }}
               >
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cursus imperdiet sed idt.
+                Discover, trade, and manage premium domains with integrated XMTP messaging, orderbook functionality, and seamless blockchain transactions.
               </p>
               
-              <button 
+              <button
+                onClick={() => {
+                  const marketplace = document.getElementById('marketplace-section');
+                  if (marketplace) marketplace.scrollIntoView({ behavior: 'smooth' });
+                }}
                 className="bg-white hover:bg-gray-100 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
                 style={{
                   width: '215px',
@@ -108,12 +116,17 @@ export default function Hero() {
               {/* Statistics overlay */}
               <div className="absolute top-8 right-8 text-right">
                 <div className="text-3xl font-bold text-white">$25B+</div>
-                <div className="text-sm text-gray-300">Worth of Domain Sold</div>
+                <div className="text-sm text-gray-300">Domain Trading Volume</div>
               </div>
               
               <div className="absolute bottom-8 left-8 text-left">
                 <div className="text-3xl font-bold text-white">986K+</div>
-                <div className="text-sm text-gray-300">Domains Created</div>
+                <div className="text-sm text-gray-300">Active Domains</div>
+              </div>
+
+              <div className="absolute top-1/2 left-8 transform -translate-y-1/2 text-left">
+                <div className="text-2xl font-bold text-white">XMTP</div>
+                <div className="text-sm text-gray-300">Integrated Messaging</div>
               </div>
             </div>
             

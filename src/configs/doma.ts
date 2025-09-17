@@ -5,7 +5,7 @@ export const domaConfig: DomaOrderbookSDKConfig = {
   apiClientOptions: {
     baseUrl: process.env.NEXT_PUBLIC_DOMA_URL || "",
     defaultHeaders: {
-      "api-key": process.env.NEXT_PUBLIC_DOMA_API_KEY || "",
+      "Api-Key": process.env.NEXT_PUBLIC_DOMA_API_KEY || "",
     },
   },
   source: process.env.NEXT_PUBLIC_APP_NAME || "domain-space",

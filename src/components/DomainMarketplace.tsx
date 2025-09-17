@@ -1,17 +1,18 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { useNames, useOwnedNames, useSelectedNames } from "@/data/use-doma";
+import { useNames, useOwnedNames, useSelectedNames, useName, useNameStats, useOffers } from "@/data/use-doma";
 // import { formatDistanceToNow } from "date-fns";
 // import { formatUnits } from "viem";
 import { Name } from "@/types/doma";
 import { useAccount } from "wagmi";
-import { useHelper } from "@/hooks/use-helper";
+// import { useHelper } from "@/hooks/use-helper";
 import { useUsername } from "@/contexts/UsernameContext";
 import DomainCard from "./DomainCard";
 import MessagingModal from "./MessagingModal";
 import DomainDetailPage from "./DomainDetailPage";
 import DialogCheckingDM from "./DialogCheckingDM";
+import DomainActionModal from "./DomainActionModal";
 import ImprovedXMTPChat from "./chat/ImprovedXMTPChat";
 
 // TLD color mappings - using exact hex colors like in the image
@@ -139,7 +140,6 @@ const ChatDomainSearchBar = ({
   setShowResults,
   domains,
   isLoading,
-  onDomainClick,
   onFocus,
   searchRef
 }: {
@@ -149,7 +149,6 @@ const ChatDomainSearchBar = ({
   setShowResults: (show: boolean) => void;
   domains: Name[];
   isLoading: boolean;
-  onDomainClick: (domain: Name) => void;
   onFocus: () => void;
   searchRef: React.RefObject<HTMLDivElement | null>;
 }) => (
@@ -190,7 +189,7 @@ const ChatDomainSearchBar = ({
                 key={domain.name}
                 onClick={() => {
                   console.log('🖱️ Domain dropdown clicked:', domain.name, domain.claimedBy);
-                  onDomainClick(domain);
+                  // Domain clicked - could add navigation here
                 }}
                 className="w-full px-4 py-3 text-left hover:bg-gray-700 transition-colors flex items-center space-x-3"
               >
@@ -232,14 +231,14 @@ const DomainFilters = ({ statusFilter, setStatusFilter, priceFilter, setPriceFil
   <div className="flex flex-wrap items-center gap-4 mb-6">
     <div className="flex items-center space-x-4">
       <span className="text-white font-medium">Filter By:</span>
-      <select 
+      <select
         value={statusFilter}
         onChange={(e) => setStatusFilter(e.target.value)}
         className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-400"
       >
         <option value="all">All</option>
-        <option value="available">Available</option>
-        <option value="taken">Taken</option>
+        <option value="listed">Listed</option>
+        <option value="unlisted">Unlisted</option>
       </select>
       <select 
         value={priceFilter}
@@ -406,14 +405,16 @@ const DomainGrid = ({
   getTldColor,
   onMessage,
   onTransactionSuccess,
-  userAddress
+  userAddress,
+  onDomainClick
 }: {
   domains: Name[];
   formatPrice: (price: string, decimals: number) => string;
   getTldColor: (tld: string) => string;
   onMessage?: (domain: Name) => void;
-  onTransactionSuccess?: (type: 'buy' | 'offer', domain: Name, result: any) => void;
+  onTransactionSuccess?: (type: 'buy' | 'offer', domain: Name, result: unknown) => void;
   userAddress?: string;
+  onDomainClick?: (domain: Name) => void;
 }) => (
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 justify-items-center">
     {domains.map((domain) => (
@@ -425,6 +426,7 @@ const DomainGrid = ({
         onMessage={onMessage}
         onTransactionSuccess={onTransactionSuccess}
         userAddress={userAddress}
+        onClick={onDomainClick}
       />
     ))}
   </div>
@@ -447,6 +449,9 @@ export default function DomainMarketplace() {
   const [selectedDomain, setSelectedDomain] = useState<Name | null>(null);
   const [showMessaging, setShowMessaging] = useState(false);
   const [showDetailPage, setShowDetailPage] = useState(false);
+  const [showActionModal, setShowActionModal] = useState(false);
+  const [actionType, setActionType] = useState<'buy' | 'offer' | null>(null);
+  const [offersActivityTab, setOffersActivityTab] = useState<'offers' | 'activity'>('offers');
 
   const [showCheckingDM, setShowCheckingDM] = useState(false);
   const [selectedUserAddress, setSelectedUserAddress] = useState<string>("");
@@ -459,7 +464,7 @@ export default function DomainMarketplace() {
   const { profile } = useUsername();
 
   // Transaction success handler
-  const handleTransactionSuccess = useCallback((type: 'buy' | 'offer', domain: Name, result: any) => {
+  const handleTransactionSuccess = useCallback((type: 'buy' | 'offer', domain: Name, result: unknown) => {
     console.log(`${type} transaction successful for ${domain.name}:`, result);
 
     if (type === 'buy') {
@@ -482,17 +487,17 @@ export default function DomainMarketplace() {
   // }), [searchQuery, tldFilter, statusFilter, priceFilter]);
 
   // Browse domains hook with optimized parameters
-  const { 
-    data: browseDomainsData, 
-    fetchNextPage: fetchNextBrowsePage, 
-    hasNextPage: hasNextBrowse, 
+  const {
+    data: browseDomainsData,
+    fetchNextPage: fetchNextBrowsePage,
+    hasNextPage: hasNextBrowse,
     isLoading: isLoadingBrowse,
     error: browseError
   } = useNames(
     20, // take
-    false, // listed
+    false, // listed - start with unlisted for broader results
     searchQuery, // name
-    tldFilter === "all" ? [] : [tldFilter] // tlds
+    [] // tlds - start with no filter for broader results
   );
 
   // Chat domain search hook
@@ -535,20 +540,67 @@ export default function DomainMarketplace() {
   // Memoized domain processing
   const browseDomains = useMemo(() => {
     if (!browseDomainsData?.pages) return [];
-    
-    return browseDomainsData.pages.flatMap(page => page.items);
-  }, [browseDomainsData]);
+
+    const domains = browseDomainsData.pages.flatMap(page => page.items);
+
+    // No additional client-side filtering needed - API handles listed/unlisted
+
+    return domains;
+  }, [browseDomainsData, statusFilter]);
 
   const totalBrowseCount = browseDomainsData?.pages[0]?.totalCount || 0;
 
   // Chat domain search results
   const chatSearchDomains = useMemo(() => {
     if (!chatDomainSearchData?.pages) return [];
-    
+
     return chatDomainSearchData.pages.flatMap(page => page.items);
   }, [chatDomainSearchData]);
 
+  // Detailed domain data when a domain is selected
+  const {
+    data: selectedDomainData,
+    isLoading: isLoadingDomainData,
+    error: domainDataError,
+    refetch: refetchDomainData
+  } = useName(selectedDomain?.name || "");
+
+  const {
+    data: selectedDomainStats
+  } = useNameStats(selectedDomainData?.tokens?.[0]?.tokenId || "");
+
+  // Fetch offers for selected domain
+  const {
+    data: offersData,
+    isLoading: isLoadingOffers,
+    error: offersError
+  } = useOffers(20, selectedDomainData?.tokens?.[0]?.tokenId || "");
+
+  // Process offers data
+  const offers = useMemo(() => {
+    if (!offersData?.pages) return [];
+    return offersData.pages.flatMap(page => page.items);
+  }, [offersData]);
+
+  // Calculate highest offer
+  const highestOffer = useMemo(() => {
+    if (!offers.length) return null;
+    return offers.reduce((highest, current) => {
+      const currentValue = parseFloat(current.price) / Math.pow(10, current.currency.decimals);
+      const highestValue = parseFloat(highest.price) / Math.pow(10, highest.currency.decimals);
+      return currentValue > highestValue ? current : highest;
+    });
+  }, [offers]);
+
   // Debug logging
+  useEffect(() => {
+    console.log('🔍 Browse domains status:', {
+      isLoading: isLoadingBrowse,
+      error: browseError?.message,
+      domainsCount: browseDomains.length,
+      apiUrl: process.env.NEXT_PUBLIC_DOMA_GRAPHQL_URL
+    });
+  }, [isLoadingBrowse, browseError, browseDomains.length]);
   console.log('Browse Domains Debug:', {
     browseDomainsData,
     browseDomains: browseDomains.length,
@@ -557,6 +609,15 @@ export default function DomainMarketplace() {
     browseError,
     searchQuery,
     tldFilter
+  });
+
+  console.log('Offers Debug:', {
+    tokenId: selectedDomainData?.tokens?.[0]?.tokenId,
+    offersData,
+    offers: offers.length,
+    highestOffer,
+    isLoadingOffers,
+    offersError
   });
   const ownedDomainsCount = ownedDomainsData?.pages?.[0]?.totalCount ?? 0;
   const watchedDomainsCount = watchedDomainsData?.pages?.[0]?.totalCount ?? 0;
@@ -575,7 +636,7 @@ export default function DomainMarketplace() {
   // Enhanced action handlers
   const handleDomainClick = useCallback((domain: Name) => {
     setSelectedDomain(domain);
-    setShowDetailPage(true);
+    setActiveTab('details');
   }, []);
 
   const handleMessage = useCallback(async (domain: Name) => {
@@ -606,6 +667,18 @@ export default function DomainMarketplace() {
   const handleBackToMarketplace = useCallback(() => {
     setShowDetailPage(false);
     setSelectedDomain(null);
+  }, []);
+
+  const handleBuy = useCallback((domain: Name) => {
+    setSelectedDomain(domain);
+    setShowActionModal(true);
+    setActionType('buy');
+  }, []);
+
+  const handleOffer = useCallback((domain: Name) => {
+    setSelectedDomain(domain);
+    setShowActionModal(true);
+    setActionType('offer');
   }, []);
 
   const handleDMCreated = useCallback((dmId: string, userAddress: string) => {
@@ -676,7 +749,7 @@ export default function DomainMarketplace() {
 
   // Tab definitions
   const tabs = [
-    { id: "trading", label: "Trading", count: "25" },
+    { id: "details", label: "Domain Details", count: selectedDomain ? "1" : "0" },
     { id: "browse", label: "Browse Domains", count: totalBrowseCount > 0 ? totalBrowseCount.toString() : "..." },
     { id: "myspace", label: "My Space", count: "12" },
     { id: "chat", label: "Chat", count: "5" }
@@ -685,11 +758,666 @@ export default function DomainMarketplace() {
   // Render functions for different tabs
   const renderTabContent = () => {
     switch (activeTab) {
-      case "trading":
+      case "details":
+        if (!selectedDomain) {
+          return (
+            <div className="text-center py-20">
+              <div className="text-8xl mb-6">🔍</div>
+              <h3 className="text-white text-2xl font-bold mb-4">Domain Details</h3>
+              <p className="text-gray-400">Click on any domain card to view detailed information</p>
+              <p className="text-sm text-gray-500 mt-2">Browse domains, view pricing, and make offers all in one place</p>
+            </div>
+          );
+        }
+
+        // Use detailed domain data if available, fallback to basic domain data
+        const domainToShow = selectedDomainData || selectedDomain;
+        const token = domainToShow.tokens?.[0];
+        const listing = token?.listings?.[0];
+        const isListed = !!listing;
+        const tld = domainToShow.name.split('.').pop() || '';
+        const isOwned = !!domainToShow.claimedBy;
+
+        if (isLoadingDomainData) {
+          return (
+            <div className="flex items-center justify-center py-20">
+              <div className="text-center">
+                <div className="w-16 h-16 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-white">Loading domain details...</p>
+              </div>
+            </div>
+          );
+        }
+
+        if (domainDataError) {
+          return (
+            <div className="text-center py-20">
+              <div className="text-6xl mb-4">⚠️</div>
+              <h3 className="text-red-400 text-xl font-bold mb-4">Error Loading Domain Details</h3>
+              <p className="text-gray-400 mb-6">{domainDataError.message}</p>
+              <button
+                onClick={() => {
+                  refetchDomainData();
+                }}
+                className="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          );
+        }
+
         return (
-          <div className="text-center py-20">
-            <h3 className="text-white text-2xl font-bold mb-4">Trading Dashboard</h3>
-            <p className="text-gray-400">Manage your domain trades and transactions</p>
+          <div className="space-y-8">
+            {/* Header with Back Button */}
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => {
+                  setSelectedDomain(null);
+                  setActiveTab('browse');
+                }}
+                className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                <span>Back to Browse</span>
+              </button>
+
+              {/* Status Badge */}
+              <div className="flex items-center space-x-2">
+                {isListed ? (
+                  <span className="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-sm font-medium">
+                    🟢 Listed
+                  </span>
+                ) : isOwned ? (
+                  <span className="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-sm font-medium">
+                    🟡 Owned
+                  </span>
+                ) : (
+                  <span className="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-sm font-medium">
+                    🔵 Available
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Domain Details Grid */}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              {/* Main Content - Left Side */}
+              <div className="xl:col-span-2 space-y-6">
+                {/* Domain Header */}
+                <div className="flex items-center space-x-4 p-6 rounded-2xl" style={{
+                  backgroundColor: '#121212',
+                  border: '1px solid',
+                  borderImage: 'radial-gradient(88.13% 63.48% at 26.09% 25.74%, #FFFFFF 0%, rgba(255, 255, 255, 0.905829) 8.52%, rgba(255, 255, 255, 0.801323) 40.45%, rgba(255, 255, 255, 0.595409) 40.46%, rgba(255, 255, 255, 0.29) 96.15%, rgba(255, 255, 255, 0) 100%, rgba(255, 255, 255, 0) 100%), linear-gradient(180deg, rgba(0, 0, 0, 0.2) 18.72%, rgba(255, 30, 0, 0.2) 43.64%, rgba(255, 255, 255, 0.2) 67.21%)',
+                  borderImageSlice: 1
+                }}>
+                  <div
+                    className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                    style={{ backgroundColor: getTldColor(tld), opacity: 0.8 }}
+                  >
+                    <span className="text-white text-2xl font-bold">
+                      {tld.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <h1 className="text-4xl font-bold font-space-mono">
+                      <span className="text-white">{domainToShow.name.split('.')[0]}</span>
+                      <span style={{ color: getTldColor(tld) }}>.{tld}</span>
+                    </h1>
+                    <p className="text-gray-400 text-lg mt-2">
+                      {isOwned ? 'Owned Domain' : 'Available Domain'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Price & Actions Card */}
+                {isListed && (
+                  <div className="p-6 rounded-2xl" style={{
+                    backgroundColor: '#121212',
+                    border: '1px solid rgba(255, 255, 255, 0.1)'
+                  }}>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+                      <div>
+                        <div className="text-3xl font-bold text-white">
+                          {formatPrice(listing.price, listing.currency.decimals)} {listing.currency.symbol}
+                        </div>
+                        <div className="text-sm text-gray-400 mt-1">
+                          ~${((parseFloat(formatPrice(listing.price, listing.currency.decimals)) * (listing.currency.usdExchangeRate || 2500))).toFixed(2)} USD
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {listing.orderbook} • Listed
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        {isOwned && (
+                          <button
+                            onClick={() => handleMessage(domainToShow)}
+                            className="flex items-center justify-center space-x-2 bg-green-600 text-white py-3 px-6 rounded-xl hover:bg-green-700 transition-all transform hover:scale-105"
+                          >
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
+                              <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+                            </svg>
+                            <span>Message Owner</span>
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => handleBuy(domainToShow)}
+                          className="flex items-center justify-center space-x-2 bg-purple-600 text-white py-3 px-6 rounded-xl hover:bg-purple-700 transition-all transform hover:scale-105"
+                        >
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"/>
+                          </svg>
+                          <span>Buy Now</span>
+                        </button>
+
+                        <button
+                          onClick={() => handleOffer(domainToShow)}
+                          className="flex items-center justify-center space-x-2 border border-purple-400 text-purple-400 py-3 px-6 rounded-xl hover:bg-purple-400/10 transition-all transform hover:scale-105"
+                        >
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"/>
+                          </svg>
+                          <span>Make Offer</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Domain Information */}
+                <div className="p-6 rounded-xl" style={{
+                  backgroundColor: '#121212',
+                  border: '1px solid rgba(255, 255, 255, 0.1)'
+                }}>
+                  <h3 className="text-xl font-bold mb-4">Domain Information</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center py-2 border-b border-gray-700/50">
+                      <span className="text-gray-400">Domain Name</span>
+                      <span className="font-medium text-white">{domainToShow.name}</span>
+                    </div>
+                    {isOwned && (
+                      <div className="flex justify-between items-center py-2 border-b border-gray-700/50">
+                        <span className="text-gray-400">Owner</span>
+                        <span className="font-medium text-white font-mono text-sm">
+                          {domainToShow.claimedBy?.split(':')[2]?.substring(0, 6)}...{domainToShow.claimedBy?.split(':')[2]?.slice(-4)}
+                        </span>
+                      </div>
+                    )}
+                    {domainToShow.expiresAt && (
+                      <div className="flex justify-between items-center py-2 border-b border-gray-700/50">
+                        <span className="text-gray-400">Expires At</span>
+                        <span className="font-medium text-white">
+                          {(() => {
+                            const now = new Date();
+                            const expires = new Date(domainToShow.expiresAt);
+                            const diffTime = expires.getTime() - now.getTime();
+                            const diffYears = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 365));
+                            return diffYears > 1 ? `in ${diffYears} years` : `in ${Math.ceil(diffTime / (1000 * 60 * 60 * 24))} days`;
+                          })()}
+                        </span>
+                      </div>
+                    )}
+                    {domainToShow.tokenizedAt && (
+                      <div className="flex justify-between items-center py-2 border-b border-gray-700/50">
+                        <span className="text-gray-400">Tokenized At</span>
+                        <span className="font-medium text-white">
+                          {(() => {
+                            const tokenizedDate = new Date(domainToShow.tokenizedAt);
+                            const now = new Date();
+                            const diffTime = now.getTime() - tokenizedDate.getTime();
+                            const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
+                            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                            return diffDays > 0 ? `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago` : `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
+                          })()}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center py-2 border-b border-gray-700/50">
+                      <span className="text-gray-400">Transfer Lock</span>
+                      <div className="flex items-center space-x-2">
+                        <span className="font-medium text-white">
+                          {domainToShow.transferLock ? 'Enabled' : 'Disabled'}
+                        </span>
+                        <span className={domainToShow.transferLock ? 'text-green-400' : 'text-red-400'}>
+                          {domainToShow.transferLock ? '🔒' : '🔓'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-gray-700/50">
+                      <span className="text-gray-400">Fractionalized</span>
+                      <div className="flex items-center space-x-2">
+                        <span className="font-medium text-white">
+                          {domainToShow.isFractionalized ? 'Yes' : 'No'}
+                        </span>
+                        <span className={domainToShow.isFractionalized ? 'text-green-400' : 'text-gray-400'}>
+                          {domainToShow.isFractionalized ? '✅' : '❌'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tokens Section */}
+                {domainToShow.tokens && domainToShow.tokens.length > 0 && (
+                  <div className="p-6 rounded-xl" style={{
+                    backgroundColor: '#121212',
+                    border: '1px solid rgba(255, 255, 255, 0.1)'
+                  }}>
+                    <h3 className="text-xl font-bold mb-4">Tokens</h3>
+                    <div className="space-y-4">
+                      {domainToShow.tokens.map((token, index) => (
+                        <div key={index} className="border border-gray-700 rounded-lg p-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="flex justify-between items-center">
+                              <span className="text-gray-400">Network</span>
+                              <span className="font-medium text-white">{token.chain?.name}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-gray-400">Token ID</span>
+                              <span className="font-medium text-white font-mono text-xs">
+                                {token.tokenId?.substring(0, 12)}...
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-gray-400">Owner</span>
+                              <span className="font-medium text-white font-mono text-sm">
+                                {token.ownerAddress?.split(':')[2]?.substring(0, 6)}...{token.ownerAddress?.split(':')[2]?.slice(-4)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-gray-400">Created</span>
+                              <span className="font-medium text-white">
+                                {token.createdAt ? (() => {
+                                  const createdDate = new Date(token.createdAt);
+                                  const now = new Date();
+                                  const diffTime = now.getTime() - createdDate.getTime();
+                                  const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
+                                  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                                  return diffDays > 0 ? `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago` : `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
+                                })() : 'Unknown'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Active Listings */}
+                          {token.listings && token.listings.length > 0 && (
+                            <div className="mt-4 pt-4 border-t border-gray-700">
+                              <h4 className="font-semibold mb-2 text-white">Active Listings</h4>
+                              <div className="space-y-2">
+                                {token.listings.map((listing, listingIndex) => (
+                                  <div key={listingIndex} className="flex justify-between items-center text-sm">
+                                    <span className="text-gray-400">Orderbook: {listing.orderbook}</span>
+                                    <span className="font-medium text-white">
+                                      {formatPrice(listing.price, listing.currency.decimals)} {listing.currency.symbol}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Registrar Section */}
+                {domainToShow.registrar && (
+                  <div className="p-6 rounded-xl" style={{
+                    backgroundColor: '#121212',
+                    border: '1px solid rgba(255, 255, 255, 0.1)'
+                  }}>
+                    <h3 className="text-xl font-bold mb-4">Registrar</h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center py-2 border-b border-gray-700/50">
+                        <span className="text-gray-400">Name</span>
+                        <span className="font-medium text-white">{domainToShow.registrar.name}</span>
+                      </div>
+                      {domainToShow.registrar.ianaId && (
+                        <div className="flex justify-between items-center py-2 border-b border-gray-700/50">
+                          <span className="text-gray-400">IANA ID</span>
+                          <span className="font-medium text-white">{domainToShow.registrar.ianaId}</span>
+                        </div>
+                      )}
+                      {domainToShow.registrar.websiteUrl && (
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-gray-400">Website</span>
+                          <a
+                            href={domainToShow.registrar.websiteUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-400 hover:text-blue-300 transition-colors"
+                          >
+                            Visit
+                          </a>
+                        </div>
+                      )}
+                      {domainToShow.claimedBy && (
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-gray-400">Owner</span>
+                          <span className="font-medium text-white font-mono text-sm">
+                            {domainToShow.claimedBy.split(':')[2]?.substring(0, 6)}...{domainToShow.claimedBy.split(':')[2]?.slice(-4)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Offers & Recent Activity */}
+                <div className="p-6 rounded-xl" style={{
+                  backgroundColor: '#121212',
+                  border: '1px solid rgba(255, 255, 255, 0.1)'
+                }}>
+                  <div className="flex space-x-1 mb-6">
+                    <button
+                      onClick={() => setOffersActivityTab('offers')}
+                      className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                        offersActivityTab === 'offers'
+                          ? 'bg-purple-600 text-white'
+                          : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+                      }`}
+                    >
+                      Offers
+                    </button>
+                    <button
+                      onClick={() => setOffersActivityTab('activity')}
+                      className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                        offersActivityTab === 'activity'
+                          ? 'bg-purple-600 text-white'
+                          : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+                      }`}
+                    >
+                      Recent Activity
+                    </button>
+                  </div>
+
+                  {/* Tab Content */}
+                  <div className="space-y-3">
+                    {offersActivityTab === 'offers' ? (
+                      // Offers Tab Content
+                      <>
+                        {isLoadingOffers ? (
+                          <div className="text-center py-8">
+                            <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                            <p className="text-gray-400 text-sm">Loading offers...</p>
+                          </div>
+                        ) : offersError ? (
+                          <div className="text-center py-8">
+                            <div className="text-4xl mb-2">⚠️</div>
+                            <h4 className="font-medium text-red-400 mb-2">Error Loading Offers</h4>
+                            <p className="text-gray-400 text-sm">{offersError.message}</p>
+                          </div>
+                        ) : offers.length === 0 ? (
+                          <div className="text-center py-8">
+                            <div className="text-4xl mb-2">💰</div>
+                            <h4 className="font-medium text-white mb-2">No Offers Yet</h4>
+                            <p className="text-gray-400 text-sm">
+                              Be the first to make an offer on this domain
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {offers.slice(0, 5).map((offer, index) => (
+                              <div key={offer.id} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg border border-gray-700/50">
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-8 h-8 bg-purple-500/20 rounded-full flex items-center justify-center">
+                                    <span className="text-purple-400 text-xs font-bold">
+                                      {offer.offererAddress.slice(2, 4).toUpperCase()}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <div className="text-white text-sm font-medium">
+                                      {formatPrice(offer.price, offer.currency.decimals)} {offer.currency.symbol}
+                                    </div>
+                                    <div className="text-gray-400 text-xs">
+                                      {offer.offererAddress.slice(0, 6)}...{offer.offererAddress.slice(-4)}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-gray-400 text-xs">
+                                    {(() => {
+                                      const createdDate = new Date(offer.createdAt);
+                                      const now = new Date();
+                                      const diffTime = now.getTime() - createdDate.getTime();
+                                      const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
+                                      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                                      return diffDays > 0 ? `${diffDays}d ago` : `${diffHours}h ago`;
+                                    })()}
+                                  </div>
+                                  {index === 0 && offers.length > 1 && (
+                                    <span className="text-green-400 text-xs font-medium">Highest</span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                            {offers.length > 5 && (
+                              <div className="text-center py-2">
+                                <span className="text-gray-400 text-sm">
+                                  +{offers.length - 5} more offers
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      // Recent Activity Tab Content
+                      <>
+                        {domainToShow.activities && domainToShow.activities.length > 0 ? (
+                          <div className="space-y-3 max-h-80 overflow-y-auto">
+                            {domainToShow.activities.map((activity, index) => (
+                              <div key={index} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg border border-gray-700/50">
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center">
+                                    <span className="text-blue-400 text-xs font-bold">
+                                      {activity.type === 'TOKENIZED' ? '🔗' :
+                                       activity.type === 'CLAIMED' ? '👤' :
+                                       activity.type === 'RENEWED' ? '🔄' :
+                                       activity.type === 'DETOKENIZED' ? '🔓' : '📝'}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <div className="text-white text-sm font-medium">
+                                      {activity.type}
+                                    </div>
+                                    <div className="text-gray-400 text-xs">
+                                      {activity.sld}.{activity.tld}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-gray-400 text-xs">
+                                    {(() => {
+                                      const activityDate = new Date(activity.createdAt);
+                                      const now = new Date();
+                                      const diffTime = now.getTime() - activityDate.getTime();
+                                      const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
+                                      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                                      return diffDays > 0 ? `${diffDays}d ago` : `${diffHours}h ago`;
+                                    })()}
+                                  </div>
+                                  {activity.txHash && (
+                                    <div className="text-gray-500 text-xs">
+                                      {activity.txHash.slice(0, 6)}...{activity.txHash.slice(-4)}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8">
+                            <div className="text-4xl mb-2">📈</div>
+                            <h4 className="font-medium text-white mb-2">No Recent Activity</h4>
+                            <p className="text-gray-400 text-sm">
+                              No recent domain activity found
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Sidebar - Right Side */}
+              <div className="space-y-6">
+                {/* Quick Stats */}
+                <div className="p-6 rounded-xl" style={{
+                  backgroundColor: '#121212',
+                  border: '1px solid rgba(255, 255, 255, 0.1)'
+                }}>
+                  <h3 className="text-lg font-bold mb-4">Quick Stats</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Status</span>
+                      <span className="text-white">{isListed ? 'Listed' : isOwned ? 'Owned' : 'Available'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Length</span>
+                      <span className="text-white">{domainToShow.name.split('.')[0].length} chars</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Extension</span>
+                      <span style={{ color: getTldColor(tld) }}>.{tld}</span>
+                    </div>
+                    {selectedDomainStats && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Active Offers</span>
+                        <span className="text-white">{selectedDomainStats.activeOffers || 0}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Action Buttons for Non-Listed */}
+                {!isListed && (
+                  <div className="p-6 rounded-xl" style={{
+                    backgroundColor: '#121212',
+                    border: '1px solid rgba(255, 255, 255, 0.1)'
+                  }}>
+                    <h3 className="text-lg font-bold mb-4">Actions</h3>
+                    <div className="space-y-3">
+                      {isOwned && (
+                        <button
+                          onClick={() => handleMessage(domainToShow)}
+                          className="w-full flex items-center justify-center space-x-2 bg-green-600 text-white py-3 px-6 rounded-xl hover:bg-green-700 transition-all"
+                        >
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
+                            <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+                          </svg>
+                          <span>Message Owner</span>
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => handleOffer(domainToShow)}
+                        className="w-full flex items-center justify-center space-x-2 border border-purple-400 text-purple-400 py-3 px-6 rounded-xl hover:bg-purple-400/10 transition-all"
+                      >
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"/>
+                        </svg>
+                        <span>{isOwned ? 'Make Offer' : 'Claim Domain'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Domain Owner */}
+                {isOwned && (
+                  <div className="p-6 rounded-xl" style={{
+                    backgroundColor: '#121212',
+                    border: '1px solid rgba(255, 255, 255, 0.1)'
+                  }}>
+                    <h3 className="text-lg font-bold mb-4">Domain Owner</h3>
+                    <div className="flex items-center space-x-3 mb-4">
+                      <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center">
+                        <span className="text-xl">👤</span>
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-white font-mono text-sm">
+                          {domainToShow.claimedBy?.split(':')[2]?.substring(0, 8)}...
+                        </div>
+                        <div className="text-xs text-gray-400">Domain Owner</div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleMessage(domainToShow)}
+                      className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
+                        <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+                      </svg>
+                      <span>Send Message</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Highest Offer */}
+                <div className="p-6 rounded-xl" style={{
+                  backgroundColor: '#121212',
+                  border: '1px solid rgba(255, 255, 255, 0.1)'
+                }}>
+                  <h3 className="text-lg font-bold mb-4">Highest Offer</h3>
+                  <div className="text-center py-4">
+                    {isLoadingOffers ? (
+                      <div className="text-center">
+                        <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                        <div className="text-sm text-gray-400">Loading...</div>
+                      </div>
+                    ) : highestOffer ? (
+                      <>
+                        <div className="text-2xl font-bold text-white mb-1">
+                          {formatPrice(highestOffer.price, highestOffer.currency.decimals)} {highestOffer.currency.symbol}
+                        </div>
+                        <div className="text-sm text-gray-400 mb-2">
+                          ~${((parseFloat(formatPrice(highestOffer.price, highestOffer.currency.decimals)) * (highestOffer.currency.usdExchangeRate || 2500))).toFixed(2)} USD
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          by {highestOffer.offererAddress.slice(0, 6)}...{highestOffer.offererAddress.slice(-4)}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-2xl font-bold text-white mb-1">--</div>
+                        <div className="text-sm text-gray-400">No offers yet</div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Community Actions */}
+                <div className="p-6 rounded-xl" style={{
+                  backgroundColor: '#121212',
+                  border: '1px solid rgba(255, 255, 255, 0.1)'
+                }}>
+                  <h3 className="text-lg font-bold mb-4">Actions</h3>
+                  <div className="space-y-3">
+                    <button className="w-full flex items-center space-x-3 text-gray-400 hover:text-white transition-colors py-2 px-3 rounded-lg hover:bg-gray-700/50">
+                      <span className="text-xl">📊</span>
+                      <span>View Analytics</span>
+                    </button>
+                    <button className="w-full flex items-center space-x-3 text-gray-400 hover:text-white transition-colors py-2 px-3 rounded-lg hover:bg-gray-700/50">
+                      <span className="text-xl">🔗</span>
+                      <span>Share Domain</span>
+                    </button>
+                    <button className="w-full flex items-center space-x-3 text-gray-400 hover:text-white transition-colors py-2 px-3 rounded-lg hover:bg-gray-700/50">
+                      <span className="text-xl">⭐</span>
+                      <span>Add to Watchlist</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         );
       case "browse":
@@ -699,9 +1427,30 @@ export default function DomainMarketplace() {
             <div className="space-y-4">
               {browseError ? (
                 <div className="text-center py-20">
+                  <div className="text-6xl mb-4">⚠️</div>
                   <h3 className="text-red-400 text-xl font-bold mb-4">Error Loading Domains</h3>
-                  <p className="text-gray-400 mb-4">{browseError.message}</p>
-                  <p className="text-gray-500 text-sm">Check your API configuration and try again</p>
+                  <p className="text-gray-400 mb-4">{browseError.message || 'Failed to fetch'}</p>
+                  <p className="text-gray-500 text-sm mb-6">Check your API configuration and try again</p>
+                  <div className="flex gap-4 justify-center">
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors"
+                    >
+                      Retry
+                    </button>
+                    <button
+                      onClick={() => {
+                        // Switch to details tab to test that functionality
+                        setActiveTab('details');
+                      }}
+                      className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors"
+                    >
+                      Test Details View
+                    </button>
+                  </div>
+                  <div className="mt-4 text-xs text-gray-600">
+                    API: {process.env.NEXT_PUBLIC_DOMA_GRAPHQL_URL || 'Not configured'}
+                  </div>
                 </div>
               ) : !searchQuery && browseDomains.length === 0 && !isLoadingBrowse ? (
                 <div className="text-center py-10">
@@ -722,6 +1471,7 @@ export default function DomainMarketplace() {
                     onMessage={handleMessage}
                     onTransactionSuccess={handleTransactionSuccess}
                     userAddress={address}
+                    onDomainClick={handleDomainClick}
                   />
                   
                   {hasNextBrowse && (
@@ -873,6 +1623,7 @@ export default function DomainMarketplace() {
                             onMessage={handleMessage}
                             onTransactionSuccess={handleTransactionSuccess}
                             userAddress={address}
+                            onDomainClick={handleDomainClick}
                           />
                           {hasNextOwned && (
                             <LoadMoreButton onClick={fetchNextOwnedPage} text="Load More Domains" />
@@ -921,6 +1672,7 @@ export default function DomainMarketplace() {
                             onMessage={handleMessage}
                             onTransactionSuccess={handleTransactionSuccess}
                             userAddress={address}
+                            onDomainClick={handleDomainClick}
                           />
                           {hasNextWatched && (
                             <LoadMoreButton onClick={fetchNextWatchedPage} text="Load More Watched Domains" />
@@ -951,7 +1703,7 @@ export default function DomainMarketplace() {
   };
 
   return (
-    <section className="relative py-20 px-6 lg:px-12">
+    <section id="marketplace-section" className="relative py-20 px-6 lg:px-12">
       {/* Background */}
       <div className="absolute inset-0 bg-black"></div>
       
@@ -1020,7 +1772,6 @@ export default function DomainMarketplace() {
               setShowResults={setShowChatDomainSearch}
               domains={chatSearchDomains}
               isLoading={isLoadingChatDomains}
-              onDomainClick={handleChatDomainMessage}
               onFocus={() => setShowChatDomainSearch(true)}
               searchRef={chatSearchRef}
             />
@@ -1098,6 +1849,27 @@ export default function DomainMarketplace() {
         userAddress={selectedUserAddress}
         onDMCreated={handleDMCreated}
       />
+
+      {/* Domain Action Modal */}
+      {selectedDomain && (selectedDomainData || selectedDomain) && (
+        <DomainActionModal
+          domain={selectedDomainData || selectedDomain}
+          isOpen={showActionModal}
+          onClose={() => {
+            setShowActionModal(false);
+            setActionType(null);
+          }}
+          onTransactionSuccess={(type, domain, result) => {
+            handleTransactionSuccess(type, domain, result);
+            // Refetch domain data after successful transaction
+            refetchDomainData();
+          }}
+          formatPrice={formatPrice}
+          getTldColor={getTldColor}
+          userAddress={address}
+        />
+      )}
+
     </section>
   );
 } 

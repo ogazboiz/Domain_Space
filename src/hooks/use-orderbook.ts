@@ -4,7 +4,6 @@ import {
   DomaOrderbookSDK,
   type CreateOfferParams,
   type BuyListingParams,
-  type OrderbookResult,
   type CurrencyToken,
   type OrderbookFee,
   type GetSupportedCurrenciesRequest,
@@ -39,9 +38,9 @@ export const useOrderbook = () => {
       const result = await sdk.getSupportedCurrencies(params);
       setCurrencies(result.currencies.filter(c => c.contractAddress));
       return result;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to get currencies:', err);
-      setError(err?.message || 'Failed to get supported currencies');
+      setError((err as Error)?.message || 'Failed to get supported currencies');
       return { currencies: [] };
     }
   }, [getSDK]);
@@ -53,9 +52,9 @@ export const useOrderbook = () => {
       const result = await sdk.getOrderbookFee(params);
       setFees(result.marketplaceFees || []);
       return result;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to get fees:', err);
-      setError(err?.message || 'Failed to get orderbook fees');
+      setError((err as Error)?.message || 'Failed to get orderbook fees');
       return { marketplaceFees: [] };
     }
   }, [getSDK]);
@@ -69,7 +68,7 @@ export const useOrderbook = () => {
     params: BuyListingParams;
     chainId: string;
     onProgress?: OnProgressCallback;
-  }): Promise<OrderbookResult | null> => {
+  }): Promise<any | null> => {
     if (!address || !walletClient) {
       setError('Please connect your wallet');
       return null;
@@ -94,7 +93,7 @@ export const useOrderbook = () => {
       console.log('✅ Purchase successful:', result);
       return result;
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = err?.message || 'Failed to buy listing';
       console.error('❌ Purchase failed:', err);
       setError(errorMessage);
@@ -115,7 +114,7 @@ export const useOrderbook = () => {
     chainId: string;
     onProgress?: OnProgressCallback;
     hasWethOffer?: boolean;
-  }): Promise<OrderbookResult | null> => {
+  }): Promise<any | null> => {
     if (!address || !walletClient) {
       setError('Please connect your wallet');
       return null;
@@ -140,7 +139,7 @@ export const useOrderbook = () => {
       console.log('✅ Offer created successfully:', result);
       return result;
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = err?.message || 'Failed to create offer';
       console.error('❌ Offer creation failed:', err);
       setError(errorMessage);

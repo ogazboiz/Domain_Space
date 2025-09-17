@@ -94,3 +94,19 @@ export function useNameStats(tokenId: string) {
     queryFn: () => dataService.getNameStats({ tokenId }),
   });
 }
+
+export function useOffers(take: number, tokenId: string) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.allOffers(1, take, tokenId),
+    queryFn: ({ pageParam = 1 }: { pageParam: number }) =>
+      dataService.getOffers({ page: pageParam, take, tokenId }),
+    getNextPageParam: (lastPage) => {
+      return lastPage.hasNextPage ? lastPage.currentPage + 1 : undefined;
+    },
+    getPreviousPageParam: (firstPage) => {
+      return firstPage.hasPreviousPage ? firstPage.currentPage - 1 : undefined;
+    },
+    initialPageParam: 1,
+    enabled: !!tokenId,
+  });
+}

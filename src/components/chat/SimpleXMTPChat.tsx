@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAccount } from 'wagmi'
 import { formatDistanceToNow } from 'date-fns'
-import { type Dm, type DecodedMessage } from '@xmtp/browser-sdk'
+import { type Dm, type DecodedMessage, ConsentState } from '@xmtp/browser-sdk'
 import { useXMTPContext } from '@/contexts/XMTPContext'
 
 interface SimpleXMTPChatProps {
@@ -56,7 +56,18 @@ export function SimpleXMTPChat({ defaultPeerAddress }: SimpleXMTPChatProps) {
     if (!client) return;
 
     try {
-      const allConversations = await client.conversations.list();
+      // CRITICAL: Force sync the client first to get latest data from network
+      console.log('🔄 SimpleXMTP: Syncing XMTP client from network...');
+      await client.conversations.sync();
+
+      // Add delay to ensure sync completes
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Load conversations with BOTH allowed AND unknown consent states
+      const allConversations = await client.conversations.listDms({
+        consentStates: [ConsentState.Allowed, ConsentState.Unknown] // Include both to see old messages
+      });
+      console.log('🔍 SimpleXMTP: Loaded conversations with consent states:', allConversations.length);
       // Filter for DM conversations only, excluding group chats
       const dms = allConversations.filter((conv) =>
         'peerInboxId' in conv && typeof conv.peerInboxId === 'function'
@@ -128,7 +139,17 @@ export function SimpleXMTPChat({ defaultPeerAddress }: SimpleXMTPChatProps) {
 
     const loadMessages = async () => {
       try {
+        // First sync the client to get latest network state
+        if (client) {
+          await client.conversations.sync();
+        }
+
+        // Then sync the specific conversation
         await activeConversation.sync()
+
+        // Add delay for cross-port consistency
+        await new Promise(resolve => setTimeout(resolve, 200))
+
         const msgs = await activeConversation.messages()
         
         // Filter out system messages and keep only text messages (like domainline)

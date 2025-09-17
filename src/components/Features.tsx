@@ -1,6 +1,12 @@
+"use client";
+
+import { useRouter } from 'next/navigation';
+
 export default function Features() {
+  const router = useRouter();
+
   return (
-    <section className="relative py-20 px-6 lg:px-12">
+    <section id="features-section" className="relative py-20 px-6 lg:px-12">
       {/* Background */}
       <div className="absolute inset-0 bg-black"></div>
       
@@ -190,8 +196,12 @@ export default function Features() {
         
         {/* Call to Action Button */}
         <div className="flex justify-center">
-          <button 
-            className="bg-white text-black px-8 py-4 rounded-full font-semibold text-lg hover:bg-gray-100 transition-colors shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+          <button
+            onClick={() => {
+              const marketplace = document.getElementById('marketplace-section');
+              if (marketplace) marketplace.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="bg-white text-black px-8 py-4 rounded-full font-semibold text-lg hover:bg-gray-100 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
             style={{
               fontFamily: 'var(--font-space-mono), monospace'
             }}

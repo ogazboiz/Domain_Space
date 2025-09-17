@@ -7,11 +7,11 @@ import { useAccount } from 'wagmi';
 export default function XMTPDiagnostic() {
   const { client, isLoading, error, isConnected } = useXMTPContext();
   const { address } = useAccount();
-  const [diagnostics, setDiagnostics] = useState<any>({});
+  const [diagnostics, setDiagnostics] = useState<Record<string, unknown>>({});
 
   useEffect(() => {
     const runDiagnostics = async () => {
-      const results = {
+      const results: Record<string, unknown> = {
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV,
         walletAddress: address,
@@ -19,7 +19,7 @@ export default function XMTPDiagnostic() {
         clientInboxId: client?.inboxId,
         isLoading,
         isConnected,
-        error: error?.message,
+        error: error ? (typeof error === 'string' ? error : (error as Error).message) : null,
         location: window.location.href,
         userAgent: navigator.userAgent,
         envVars: {
@@ -35,7 +35,7 @@ export default function XMTPDiagnostic() {
           results.conversationsCount = conversations.length;
           results.conversationTypes = conversations.map(c => c.constructor.name);
         } catch (err) {
-          results.conversationsError = err.message;
+          results.conversationsError = (err as Error).message;
         }
       }
 

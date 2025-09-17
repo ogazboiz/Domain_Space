@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useAccount } from 'wagmi'
 import { formatDistanceToNow } from 'date-fns'
-import { type Dm, type DecodedMessage } from '@xmtp/browser-sdk'
+import { type Dm, type DecodedMessage, ConsentState } from '@xmtp/browser-sdk'
 import { useXMTPContext } from '@/contexts/XMTPContext'
 
 interface ImprovedXMTPChatProps {
@@ -27,7 +27,7 @@ interface EnhancedConversation {
 }
 
 export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "", setSearchQuery, onManualConversationSelect }: ImprovedXMTPChatProps) {
-  const { client, isLoading, error, isConnected } = useXMTPContext()
+  const { client, isLoading, error, isConnected, revokeInstallations } = useXMTPContext()
   const { address } = useAccount()
   
   // State
@@ -222,7 +222,21 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     setIsLoadingConversations(true);
     setLoading(true);
     try {
-      const allConversations = await client.conversations.list();
+      // CRITICAL: Force sync the client first to get latest data from network
+      console.log('🔄 Syncing XMTP client from network...');
+      await client.conversations.sync();
+
+      // Add delay to ensure sync completes
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Load conversations with BOTH allowed AND unknown consent states
+      // This ensures we see old conversations that haven't been explicitly allowed yet
+      const allConversations = await client.conversations.listDms({
+        consentStates: [ConsentState.Allowed, ConsentState.Unknown] // This is the key fix!
+      });
+
+      console.log('🔍 Loaded conversations with consent states:', allConversations.length);
+
       // Filter for DM conversations only, excluding group chats
       const dms = allConversations.filter((conv) =>
         'peerInboxId' in conv && typeof conv.peerInboxId === 'function'
@@ -443,6 +457,43 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     }
   };
 
+  // Manual sync function for the sync button
+  const handleManualSync = useCallback(async () => {
+    if (!client) {
+      console.log('❌ No XMTP client for manual sync');
+      return;
+    }
+
+    console.log('🔄 Manual sync triggered');
+    setIsLoadingConversations(true);
+
+    try {
+      // Force sync from network
+      await client.conversations.sync();
+
+      // Reload conversations
+      await loadConversations();
+
+      // If there's an active conversation, refresh its messages
+      if (activeConversation) {
+        await activeConversation.sync();
+        const msgs = await activeConversation.messages();
+        const textMessages = msgs.filter((msg: DecodedMessage) => {
+          return typeof msg.content === "string" &&
+                 msg.content !== "" &&
+                 !msg.content.startsWith("{");
+        });
+        setMessages(textMessages);
+      }
+
+      console.log('✅ Manual sync completed');
+    } catch (error) {
+      console.error('❌ Manual sync failed:', error);
+    } finally {
+      setIsLoadingConversations(false);
+    }
+  }, [client, loadConversations, activeConversation]);
+
   // Handle conversation selection
   const handleSelectConversation = async (conversation: EnhancedConversation) => {
     console.log("Selecting conversation:", conversation.id, "xmtpObject:", conversation.xmtpObject);
@@ -475,9 +526,23 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     setActivePeerAddress(conversation.peerAddress);
     
     // Load messages immediately with the specific conversation
-    console.log("Loading messages for conversation:", conversation.id);
+    console.log("🔄 Loading messages for conversation:", conversation.id);
     try {
+      // Force fresh sync from XMTP network (critical for cross-port consistency)
+      console.log('🔄 Step 1: Syncing XMTP client and conversation...');
+
+      // First sync the entire client to get latest network state
+      if (client) {
+        await client.conversations.sync();
+      }
+
+      // Then sync the specific conversation
       await conversation.xmtpObject.sync();
+
+      // Add a longer delay to ensure sync completion
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      console.log('🔄 Step 2: Fetching messages after sync...');
       const msgs = await conversation.xmtpObject.messages();
       
       console.log('Raw messages from XMTP:', msgs);
@@ -487,7 +552,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
         id: m.id,
         content: m.content,
         contentType: typeof m.content,
-        contentLength: m.content?.length,
+        contentLength: typeof m.content === 'string' ? m.content.length : 0,
         senderInboxId: m.senderInboxId,
         startsWithBrace: typeof m.content === 'string' ? m.content.startsWith('{') : false,
         includesInitiated: typeof m.content === 'string' ? m.content.includes('initiatedByInboxId') : false
@@ -501,7 +566,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
           content: msg.content,
           isText,
           type: typeof msg.content,
-          length: msg.content?.length
+          length: typeof msg.content === 'string' ? msg.content.length : 0
         });
         return isText;
       });
@@ -564,7 +629,9 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
           
           // Load messages for existing conversation
           try {
+            console.log('🔄 Force syncing existing conversation...');
             await existingConversation.xmtpObject.sync();
+            await new Promise(resolve => setTimeout(resolve, 100));
             const msgs = await existingConversation.xmtpObject.messages();
             
             // DEBUG: Much more permissive filter
@@ -618,7 +685,9 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
           
           // Load messages directly without using the loadMessages function
           try {
+            console.log('🔄 Force syncing new conversation...');
             await conversation.sync();
+            await new Promise(resolve => setTimeout(resolve, 100));
             const msgs = await conversation.messages();
             
             // DEBUG: Much more permissive filter
@@ -673,7 +742,9 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
             
             // Load messages directly without using the loadMessages function
             try {
+              console.log('🔄 Force syncing conversation from URL...');
               await (conversation as Dm).sync();
+              await new Promise(resolve => setTimeout(resolve, 100));
               const msgs = await (conversation as Dm).messages();
               
               // DEBUG: Much more permissive filter
@@ -948,17 +1019,55 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
             </div>
           </div>
         )}
+
+        {/* XMTP Error Section */}
+        {error && (
+          <div className="p-3 bg-red-900/50 border-b border-red-700">
+            <div className="text-sm text-red-300 mb-2">
+              {error}
+            </div>
+            {error.includes('installation limit') && (
+              <button
+                onClick={revokeInstallations}
+                disabled={isLoading}
+                className="px-3 py-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs rounded transition-colors"
+              >
+                {isLoading ? 'Revoking...' : 'Revoke Old Installations'}
+              </button>
+            )}
+          </div>
+        )}
         
         {/* Header */}
         <div className="p-4 border-b border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold">Messages</h2>
-            <button
-              onClick={() => setShowNewConversation(true)}
-              className="w-8 h-8 rounded-full bg-purple-600 hover:bg-purple-700 flex items-center justify-center transition-colors"
-            >
-              <span className="text-white text-lg">+</span>
-            </button>
+            <div className="flex items-center space-x-2">
+              {/* Sync Button */}
+              <button
+                onClick={handleManualSync}
+                disabled={isLoadingConversations}
+                className="w-8 h-8 rounded-full bg-gray-600/50 hover:bg-gray-600 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Sync conversations from network"
+              >
+                {isLoadingConversations ? (
+                  <div className="w-3 h-3 border border-gray-300 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                )}
+              </button>
+
+              {/* New Conversation Button */}
+              <button
+                onClick={() => setShowNewConversation(true)}
+                className="w-8 h-8 rounded-full bg-purple-600 hover:bg-purple-700 flex items-center justify-center transition-colors"
+                title="Start new conversation"
+              >
+                <span className="text-white text-lg">+</span>
+              </button>
+            </div>
           </div>
 
           {/* Enhanced search input for conversations */}
@@ -1327,21 +1436,39 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
           <>
             {/* Chat Header */}
             <div className="p-4 border-b border-gray-700">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-full bg-purple-600/20 border border-purple-500/30 flex items-center justify-center">
-                  <span className="text-purple-400 text-xs font-bold">
-                    {activePeerAddress ? activePeerAddress.slice(2, 4).toUpperCase() : '💬'}
-                  </span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 rounded-full bg-purple-600/20 border border-purple-500/30 flex items-center justify-center">
+                    <span className="text-purple-400 text-xs font-bold">
+                      {activePeerAddress ? activePeerAddress.slice(2, 4).toUpperCase() : '💬'}
+                    </span>
+                  </div>
+                  <div>
+                    <h3 className="text-white font-medium">
+                      {activePeerAddress ?
+                        `${activePeerAddress.slice(0, 6)}...${activePeerAddress.slice(-4)}` :
+                        'XMTP Chat'
+                      }
+                    </h3>
+                    <p className="text-gray-400 text-sm">Secure messaging</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-white font-medium">
-                    {activePeerAddress ?
-                      `${activePeerAddress.slice(0, 6)}...${activePeerAddress.slice(-4)}` :
-                      'XMTP Chat'
-                    }
-                  </h3>
-                  <p className="text-gray-400 text-sm">Secure messaging</p>
-                </div>
+
+                {/* Sync Button */}
+                <button
+                  onClick={handleManualSync}
+                  disabled={isLoadingConversations}
+                  className="p-2 rounded-lg bg-purple-600/20 border border-purple-500/30 hover:bg-purple-600/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Sync messages from network (useful when switching between ports)"
+                >
+                  {isLoadingConversations ? (
+                    <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  )}
+                </button>
               </div>
             </div>
 
