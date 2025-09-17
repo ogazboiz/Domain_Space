@@ -15,6 +15,14 @@ import { domaConfig } from '@/configs/doma';
 import { Name } from '@/types/doma';
 import { parseUnits } from 'viem';
 
+// Define a proper result type
+interface OrderbookResult {
+  orderId?: string;
+  transactionHash?: string;
+  success?: boolean;
+  [key: string]: unknown;
+}
+
 export const useOrderbook = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +76,7 @@ export const useOrderbook = () => {
     params: BuyListingParams;
     chainId: string;
     onProgress?: OnProgressCallback;
-  }): Promise<any | null> => {
+  }): Promise<OrderbookResult | null> => {
     if (!address || !walletClient) {
       setError('Please connect your wallet');
       return null;
@@ -79,22 +87,22 @@ export const useOrderbook = () => {
 
     try {
       const sdk = getSDK();
-      const signer = viemToEthersSigner(walletClient, chainId);
+      const signer = viemToEthersSigner(walletClient, chainId as `eip155:${number}`);
 
       console.log('🛒 Buying listing:', params);
 
       const result = await sdk.buyListing({
         params,
         signer,
-        chainId,
+        chainId: chainId as `eip155:${number}`,
         onProgress: onProgress || (() => {})
       });
 
       console.log('✅ Purchase successful:', result);
-      return result;
+      return result as unknown as OrderbookResult;
 
     } catch (err: unknown) {
-      const errorMessage = err?.message || 'Failed to buy listing';
+      const errorMessage = (err as Error)?.message || 'Failed to buy listing';
       console.error('❌ Purchase failed:', err);
       setError(errorMessage);
       return null;
@@ -114,7 +122,7 @@ export const useOrderbook = () => {
     chainId: string;
     onProgress?: OnProgressCallback;
     hasWethOffer?: boolean;
-  }): Promise<any | null> => {
+  }): Promise<OrderbookResult | null> => {
     if (!address || !walletClient) {
       setError('Please connect your wallet');
       return null;
@@ -125,22 +133,22 @@ export const useOrderbook = () => {
 
     try {
       const sdk = getSDK();
-      const signer = viemToEthersSigner(walletClient, chainId);
+      const signer = viemToEthersSigner(walletClient, chainId as `eip155:${number}`);
 
       console.log('💰 Creating offer:', params);
 
       const result = await sdk.createOffer({
         params,
         signer,
-        chainId,
+        chainId: chainId as `eip155:${number}`,
         onProgress: onProgress || (() => {})
       });
 
       console.log('✅ Offer created successfully:', result);
-      return result;
+      return result as unknown as OrderbookResult;
 
     } catch (err: unknown) {
-      const errorMessage = err?.message || 'Failed to create offer';
+      const errorMessage = (err as Error)?.message || 'Failed to create offer';
       console.error('❌ Offer creation failed:', err);
       setError(errorMessage);
       return null;
@@ -161,15 +169,7 @@ export const useOrderbook = () => {
       tokenAddress: token.tokenAddress,
       tokenId: token.tokenId,
       chainId: token.chain?.networkId || 'eip155:97476', // Default to Doma testnet
-      listings: domain.listingPrice ? [{
-        externalId: domain.id || '',
-        price: domain.listingPrice,
-        currency: {
-          decimals: domain.listingPriceDecimals || 18,
-          symbol: 'ETH'
-        },
-        orderbook: 'doma' as const
-      }] : []
+      listings: token.listings || []
     };
   }, []);
 

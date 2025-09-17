@@ -14,7 +14,6 @@ import { getApprovalActions } from "@opensea/seaport-js/lib/utils/approval";
 import {
   ApiClient,
   Caip2ChainId,
-  createWethDepositTransaction,
   CurrencyToken,
   DomaOrderbookError,
   DomaOrderbookErrorCode,
@@ -30,7 +29,6 @@ import {
   type CreateOfferParams,
   type CreateOfferResult,
   type OfferItem,
-  type WethConversionAction,
 } from "@doma-protocol/orderbook-sdk";
 import { SeaportOperationHandler, ZONES } from "./handler";
 import { buildOfferOrderInput } from "./actions";
@@ -153,20 +151,21 @@ export class CreateOfferHandler extends SeaportOperationHandler<
 
           if (ethBalance < difference) {
             throw new DomaOrderbookError(
-              DomaOrderbookErrorCode.INSUFFICIENT_ETH_BALANCE,
+              DomaOrderbookErrorCode.INSUFFICIENT_BALANCE,
               "Insufficient funds to cover WETH conversion"
             );
           }
 
-          const wethDepositTransaction: WethConversionAction = {
-            type: "conversion",
-            transactionMethods: createWethDepositTransaction(
-              this.signer,
-              weth,
-              difference
-            ),
-          };
-          actions.push(wethDepositTransaction);
+          // WETH conversion functionality not available in current SDK
+          // const wethDepositTransaction = {
+          //   type: "conversion",
+          //   transactionMethods: createWethDepositTransaction(
+          //     this.signer,
+          //     weth,
+          //     difference
+          //   ),
+          // };
+          // actions.push(wethDepositTransaction);
         }
       }
 

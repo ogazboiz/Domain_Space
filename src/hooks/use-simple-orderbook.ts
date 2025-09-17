@@ -217,15 +217,7 @@ export const useSimpleOrderbook = () => {
       tokenAddress: token.tokenAddress,
       tokenId: token.tokenId,
       chainId: token.chain?.networkId || 'eip155:97476',
-      listings: domain.listingPrice ? [{
-        externalId: domain.id || '',
-        price: domain.listingPrice,
-        currency: {
-          decimals: domain.listingPriceDecimals || 18,
-          symbol: 'ETH'
-        },
-        orderbook: 'doma' as const
-      }] : []
+      listings: token.listings || []
     };
   }, []);
 
