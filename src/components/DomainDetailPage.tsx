@@ -12,14 +12,20 @@ interface DomainDetailPageProps {
   onMessage?: (domain: Name) => void;
   onBuy?: (domain: Name) => void;
   onOffer?: (domain: Name) => void;
+  onList?: (domain: Name) => void;
+  onCancelListing?: (domain: Name) => void;
+  userAddress?: string;
 }
 
-const DomainDetailPage = ({ 
-  domain, 
-  onBack, 
-  // onMessage, 
-  onBuy, 
-  onOffer 
+const DomainDetailPage = ({
+  domain,
+  onBack,
+  // onMessage,
+  onBuy,
+  onOffer,
+  onList,
+  onCancelListing,
+  userAddress
 }: DomainDetailPageProps) => {
   const [showMessaging, setShowMessaging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -29,6 +35,8 @@ const DomainDetailPage = ({
   const isListed = !!listing;
   const tld = domain.name.split('.').pop() || '';
   const isOwned = !!domain.claimedBy;
+  const isOwnedByUser = userAddress && domain.claimedBy &&
+    domain.claimedBy.split(':')[2]?.toLowerCase() === userAddress.toLowerCase();
 
   const getTldColor = (tld: string) => {
     const tldColors: { [key: string]: string } = {
@@ -48,12 +56,12 @@ const DomainDetailPage = ({
     return value.toFixed(4);
   };
 
-  const handleAction = async (action: 'message' | 'buy' | 'offer') => {
+  const handleAction = async (action: 'message' | 'buy' | 'offer' | 'list' | 'cancelListing') => {
     setIsLoading(true);
-    
+
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1000));
-    
+
     switch (action) {
       case 'message':
         setShowMessaging(true);
@@ -64,8 +72,14 @@ const DomainDetailPage = ({
       case 'offer':
         onOffer?.(domain);
         break;
+      case 'list':
+        onList?.(domain);
+        break;
+      case 'cancelListing':
+        onCancelListing?.(domain);
+        break;
     }
-    
+
     setIsLoading(false);
   };
 
@@ -160,36 +174,70 @@ const DomainDetailPage = ({
             {/* Actions */}
             <div className="space-y-4">
               <h3 className="text-xl font-bold">Actions</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <button
-                  onClick={() => handleAction('message')}
-                  disabled={isLoading}
-                  className="flex items-center justify-center space-x-2 bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-                >
-                  <span>💬</span>
-                  <span>Message Owner</span>
-                </button>
-                
-                {isListed && (
+              {isOwnedByUser ? (
+                // Actions for owned domains
+                <div className="space-y-4">
+                  <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-green-400">✓</span>
+                      <span className="text-green-400 font-medium">You own this domain</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {isListed ? (
+                      <button
+                        onClick={() => handleAction('cancelListing')}
+                        disabled={isLoading}
+                        className="flex items-center justify-center space-x-2 bg-red-600 text-white py-3 px-6 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                      >
+                        <span>❌</span>
+                        <span>Cancel Listing</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleAction('list')}
+                        disabled={isLoading}
+                        className="flex items-center justify-center space-x-2 bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                      >
+                        <span>📋</span>
+                        <span>List Domain</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                // Actions for non-owned domains
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <button
-                    onClick={() => handleAction('buy')}
+                    onClick={() => handleAction('message')}
                     disabled={isLoading}
-                    className="flex items-center justify-center space-x-2 bg-purple-600 text-white py-3 px-6 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                    className="flex items-center justify-center space-x-2 bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
                   >
-                    <span>🛒</span>
-                    <span>Buy Now</span>
+                    <span>💬</span>
+                    <span>Message Owner</span>
                   </button>
-                )}
-                
-                <button
-                  onClick={() => handleAction('offer')}
-                  disabled={isLoading}
-                  className="flex items-center justify-center space-x-2 border border-white text-white py-3 px-6 rounded-lg hover:bg-white/10 transition-colors disabled:opacity-50"
-                >
-                  <span>💰</span>
-                  <span>Make Offer</span>
-                </button>
-              </div>
+
+                  {isListed && (
+                    <button
+                      onClick={() => handleAction('buy')}
+                      disabled={isLoading}
+                      className="flex items-center justify-center space-x-2 bg-purple-600 text-white py-3 px-6 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                    >
+                      <span>🛒</span>
+                      <span>Buy Now</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => handleAction('offer')}
+                    disabled={isLoading}
+                    className="flex items-center justify-center space-x-2 border border-white text-white py-3 px-6 rounded-lg hover:bg-white/10 transition-colors disabled:opacity-50"
+                  >
+                    <span>💰</span>
+                    <span>Make Offer</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -268,7 +316,7 @@ const DomainDetailPage = ({
                   <div className="flex justify-between">
                     <span className="text-gray-400">Owner</span>
                     <span className="text-white font-mono text-sm">
-                      {domain.claimedBy?.split(':')[2]?.substring(0, 10)}...
+                      {isOwnedByUser ? 'You' : `${domain.claimedBy?.split(':')[2]?.substring(0, 10)}...`}
                     </span>
                   </div>
                 )}

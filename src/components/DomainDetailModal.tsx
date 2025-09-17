@@ -269,22 +269,44 @@ export default function DomainDetailModal({
 
               {/* Actions */}
               <div className="flex space-x-4">
-                {hasListings ? (
-                  <button className="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition-colors">
-                    Buy Now
-                  </button>
+                {isOwner ? (
+                  // Actions for owned domains
+                  <>
+                    {hasListings ? (
+                      <button
+                        onClick={() => alert(`Cancel Listing for ${domain.name}\n\nThis would cancel the current listing and remove the domain from the marketplace.`)}
+                        className="flex-1 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg transition-colors"
+                      >
+                        Cancel Listing
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => alert(`List ${domain.name}\n\nThis would open a list domain dialog where you can set the price and list your domain for sale.`)}
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition-colors"
+                      >
+                        List Domain
+                      </button>
+                    )}
+                  </>
                 ) : (
-                  <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors">
-                    Make Offer
-                  </button>
-                )}
-                {!isOwner && (
-                  <button
-                    onClick={handleMessage}
-                    className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-6 py-3 rounded-lg transition-colors"
-                  >
-                    Message Owner
-                  </button>
+                  // Actions for non-owned domains
+                  <>
+                    {hasListings ? (
+                      <button className="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition-colors">
+                        Buy Now
+                      </button>
+                    ) : (
+                      <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors">
+                        Make Offer
+                      </button>
+                    )}
+                    <button
+                      onClick={handleMessage}
+                      className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-6 py-3 rounded-lg transition-colors"
+                    >
+                      Message Owner
+                    </button>
+                  </>
                 )}
               </div>
             </div>

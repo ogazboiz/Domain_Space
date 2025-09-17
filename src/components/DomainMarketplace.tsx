@@ -405,16 +405,26 @@ const DomainGrid = ({
   getTldColor,
   onMessage,
   onTransactionSuccess,
+  onBuy,
+  onOffer,
+  onList,
+  onCancelListing,
   userAddress,
-  onDomainClick
+  onDomainClick,
+  forceOwned = false
 }: {
   domains: Name[];
   formatPrice: (price: string, decimals: number) => string;
   getTldColor: (tld: string) => string;
   onMessage?: (domain: Name) => void;
   onTransactionSuccess?: (type: 'buy' | 'offer', domain: Name, result: unknown) => void;
+  onBuy?: (domain: Name) => void;
+  onOffer?: (domain: Name) => void;
+  onList?: (domain: Name) => void;
+  onCancelListing?: (domain: Name) => void;
   userAddress?: string;
   onDomainClick?: (domain: Name) => void;
+  forceOwned?: boolean;
 }) => (
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 justify-items-center">
     {domains.map((domain) => (
@@ -425,8 +435,13 @@ const DomainGrid = ({
         getTldColor={getTldColor}
         onMessage={onMessage}
         onTransactionSuccess={onTransactionSuccess}
+        onBuy={onBuy}
+        onOffer={onOffer}
+        onList={onList}
+        onCancelListing={onCancelListing}
         userAddress={userAddress}
         onClick={onDomainClick}
+        forceOwned={forceOwned}
       />
     ))}
   </div>
@@ -451,6 +466,7 @@ export default function DomainMarketplace() {
   const [showDetailPage, setShowDetailPage] = useState(false);
   const [showActionModal, setShowActionModal] = useState(false);
   const [actionType, setActionType] = useState<'buy' | 'offer' | null>(null);
+  const [selectedDomainFromOwned, setSelectedDomainFromOwned] = useState(false);
   const [offersActivityTab, setOffersActivityTab] = useState<'offers' | 'activity'>('offers');
 
   const [showCheckingDM, setShowCheckingDM] = useState(false);
@@ -486,19 +502,84 @@ export default function DomainMarketplace() {
   //   sort: priceFilter === "all" ? undefined : priceFilter
   // }), [searchQuery, tldFilter, statusFilter, priceFilter]);
 
-  // Browse domains hook with optimized parameters
+  // Browse domains hooks - separate calls for listed and unlisted when "all" is selected
   const {
-    data: browseDomainsData,
-    fetchNextPage: fetchNextBrowsePage,
-    hasNextPage: hasNextBrowse,
-    isLoading: isLoadingBrowse,
-    error: browseError
+    data: listedDomainsData,
+    fetchNextPage: fetchNextListedPage,
+    hasNextPage: hasNextListed,
+    isLoading: isLoadingListed,
+    error: listedError
   } = useNames(
-    20, // take
-    false, // listed - start with unlisted for broader results
+    statusFilter === "all" ? 10 : 20, // take - split when showing all
+    true, // listed = true
     searchQuery, // name
-    [] // tlds - start with no filter for broader results
+    [] // tlds
   );
+
+  const {
+    data: unlistedDomainsData,
+    fetchNextPage: fetchNextUnlistedPage,
+    hasNextPage: hasNextUnlisted,
+    isLoading: isLoadingUnlisted,
+    error: unlistedError
+  } = useNames(
+    statusFilter === "all" ? 10 : 20, // take - split when showing all
+    false, // listed = false
+    searchQuery, // name
+    [] // tlds
+  );
+
+  // Combine or select the appropriate data based on filter
+  const browseDomainsData = useMemo(() => {
+    if (statusFilter === "listed") return listedDomainsData;
+    if (statusFilter === "unlisted") return unlistedDomainsData;
+
+    // For "all", combine both listed and unlisted
+    if (!listedDomainsData && !unlistedDomainsData) return undefined;
+
+    const combinedPages = [];
+    const maxPages = Math.max(
+      listedDomainsData?.pages?.length || 0,
+      unlistedDomainsData?.pages?.length || 0
+    );
+
+    for (let i = 0; i < maxPages; i++) {
+      const listedItems = listedDomainsData?.pages?.[i]?.items || [];
+      const unlistedItems = unlistedDomainsData?.pages?.[i]?.items || [];
+      const combinedItems = [...listedItems, ...unlistedItems];
+
+      if (combinedItems.length > 0) {
+        combinedPages.push({
+          items: combinedItems,
+          totalCount: (listedDomainsData?.pages?.[0]?.totalCount || 0) + (unlistedDomainsData?.pages?.[0]?.totalCount || 0),
+          currentPage: i + 1,
+          hasNextPage: (listedDomainsData?.pages?.[i]?.hasNextPage || false) || (unlistedDomainsData?.pages?.[i]?.hasNextPage || false)
+        });
+      }
+    }
+
+    return { pages: combinedPages };
+  }, [statusFilter, listedDomainsData, unlistedDomainsData]);
+
+  const fetchNextBrowsePage = useCallback(() => {
+    if (statusFilter === "listed") return fetchNextListedPage();
+    if (statusFilter === "unlisted") return fetchNextUnlistedPage();
+    // For "all", fetch both
+    if (hasNextListed) fetchNextListedPage();
+    if (hasNextUnlisted) fetchNextUnlistedPage();
+  }, [statusFilter, fetchNextListedPage, fetchNextUnlistedPage, hasNextListed, hasNextUnlisted]);
+
+  const hasNextBrowse = statusFilter === "listed" ? hasNextListed :
+                       statusFilter === "unlisted" ? hasNextUnlisted :
+                       hasNextListed || hasNextUnlisted;
+
+  const isLoadingBrowse = statusFilter === "listed" ? isLoadingListed :
+                         statusFilter === "unlisted" ? isLoadingUnlisted :
+                         isLoadingListed || isLoadingUnlisted;
+
+  const browseError = statusFilter === "listed" ? listedError :
+                     statusFilter === "unlisted" ? unlistedError :
+                     listedError || unlistedError;
 
   // Chat domain search hook
   const { 
@@ -537,16 +618,43 @@ export default function DomainMarketplace() {
     selectedCategory === "all" ? null : [selectedCategory]
   );
 
-  // Memoized domain processing
+  // Memoized domain processing with price sorting
   const browseDomains = useMemo(() => {
     if (!browseDomainsData?.pages) return [];
 
-    const domains = browseDomainsData.pages.flatMap(page => page.items);
+    let domains = browseDomainsData.pages.flatMap(page => page.items);
 
-    // No additional client-side filtering needed - API handles listed/unlisted
+    // Apply client-side price sorting
+    if (priceFilter !== "all") {
+      domains = [...domains].sort((a, b) => {
+        const getPriceValue = (domain: Name) => {
+          const listing = domain.tokens?.[0]?.listings?.[0];
+          if (!listing) return 0; // Unlisted domains get 0 price for sorting
+          return parseFloat(listing.price) / Math.pow(10, listing.currency.decimals);
+        };
+
+        const priceA = getPriceValue(a);
+        const priceB = getPriceValue(b);
+
+        if (priceFilter === "price-low") {
+          // Low to High: unlisted domains (price = 0) first, then by ascending price
+          if (priceA === 0 && priceB === 0) return 0;
+          if (priceA === 0) return -1;
+          if (priceB === 0) return 1;
+          return priceA - priceB;
+        } else if (priceFilter === "price-high") {
+          // High to Low: by descending price, unlisted domains (price = 0) last
+          if (priceA === 0 && priceB === 0) return 0;
+          if (priceA === 0) return 1;
+          if (priceB === 0) return -1;
+          return priceB - priceA;
+        }
+        return 0;
+      });
+    }
 
     return domains;
-  }, [browseDomainsData, statusFilter]);
+  }, [browseDomainsData, priceFilter]);
 
   const totalBrowseCount = browseDomainsData?.pages[0]?.totalCount || 0;
 
@@ -636,6 +744,13 @@ export default function DomainMarketplace() {
   // Enhanced action handlers
   const handleDomainClick = useCallback((domain: Name) => {
     setSelectedDomain(domain);
+    setSelectedDomainFromOwned(false);
+    setActiveTab('details');
+  }, []);
+
+  const handleOwnedDomainClick = useCallback((domain: Name) => {
+    setSelectedDomain(domain);
+    setSelectedDomainFromOwned(true);
     setActiveTab('details');
   }, []);
 
@@ -679,6 +794,16 @@ export default function DomainMarketplace() {
     setSelectedDomain(domain);
     setShowActionModal(true);
     setActionType('offer');
+  }, []);
+
+  const handleList = useCallback((domain: Name) => {
+    // TODO: Implement listing functionality - open list domain modal
+    alert(`List ${domain.name}\n\nThis would open a list domain dialog where you can set the price and list your domain for sale.`);
+  }, []);
+
+  const handleCancelListing = useCallback((domain: Name) => {
+    // TODO: Implement cancel listing functionality
+    alert(`Cancel Listing for ${domain.name}\n\nThis would cancel the current listing and remove the domain from the marketplace.`);
   }, []);
 
   const handleDMCreated = useCallback((dmId: string, userAddress: string) => {
@@ -891,40 +1016,62 @@ export default function DomainMarketplace() {
                         </div>
                       </div>
 
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        {isOwned && (
+                      {selectedDomainFromOwned ? (
+                        // Actions for owned listed domains
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <div className="bg-green-900/20 border border-green-700 rounded-lg p-3">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-green-400">✓</span>
+                              <span className="text-green-400 font-medium text-sm">You own this domain</span>
+                            </div>
+                          </div>
                           <button
-                            onClick={() => handleMessage(domainToShow)}
-                            className="flex items-center justify-center space-x-2 bg-green-600 text-white py-3 px-6 rounded-xl hover:bg-green-700 transition-all transform hover:scale-105"
+                            onClick={() => handleCancelListing(domainToShow)}
+                            className="flex items-center justify-center space-x-2 bg-red-600 text-white py-3 px-6 rounded-xl hover:bg-red-700 transition-all transform hover:scale-105"
                           >
                             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                              <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
-                              <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+                              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
                             </svg>
-                            <span>Message Owner</span>
+                            <span>Cancel Listing</span>
                           </button>
-                        )}
+                        </div>
+                      ) : (
+                        // Actions for non-owned listed domains
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          {isOwned && (
+                            <button
+                              onClick={() => handleMessage(domainToShow)}
+                              className="flex items-center justify-center space-x-2 bg-green-600 text-white py-3 px-6 rounded-xl hover:bg-green-700 transition-all transform hover:scale-105"
+                            >
+                              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
+                                <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+                              </svg>
+                              <span>Message Owner</span>
+                            </button>
+                          )}
 
-                        <button
-                          onClick={() => handleBuy(domainToShow)}
-                          className="flex items-center justify-center space-x-2 bg-purple-600 text-white py-3 px-6 rounded-xl hover:bg-purple-700 transition-all transform hover:scale-105"
-                        >
-                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"/>
-                          </svg>
-                          <span>Buy Now</span>
-                        </button>
+                          <button
+                            onClick={() => handleBuy(domainToShow)}
+                            className="flex items-center justify-center space-x-2 bg-purple-600 text-white py-3 px-6 rounded-xl hover:bg-purple-700 transition-all transform hover:scale-105"
+                          >
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"/>
+                            </svg>
+                            <span>Buy Now</span>
+                          </button>
 
-                        <button
-                          onClick={() => handleOffer(domainToShow)}
-                          className="flex items-center justify-center space-x-2 border border-purple-400 text-purple-400 py-3 px-6 rounded-xl hover:bg-purple-400/10 transition-all transform hover:scale-105"
-                        >
-                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"/>
-                          </svg>
-                          <span>Make Offer</span>
-                        </button>
-                      </div>
+                          <button
+                            onClick={() => handleOffer(domainToShow)}
+                            className="flex items-center justify-center space-x-2 border border-purple-400 text-purple-400 py-3 px-6 rounded-xl hover:bg-purple-400/10 transition-all transform hover:scale-105"
+                          >
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"/>
+                            </svg>
+                            <span>Make Offer</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1304,30 +1451,64 @@ export default function DomainMarketplace() {
                     border: '1px solid rgba(255, 255, 255, 0.1)'
                   }}>
                     <h3 className="text-lg font-bold mb-4">Actions</h3>
-                    <div className="space-y-3">
-                      {isOwned && (
+                    {selectedDomainFromOwned ? (
+                      // Actions for owned domains
+                      <div className="space-y-3">
+                        <div className="bg-green-900/20 border border-green-700 rounded-lg p-3 mb-3">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-green-400">✓</span>
+                            <span className="text-green-400 font-medium text-sm">You own this domain</span>
+                          </div>
+                        </div>
+                        {isListed ? (
+                          <button
+                            onClick={() => handleCancelListing(domainToShow)}
+                            className="w-full flex items-center justify-center space-x-2 bg-red-600 text-white py-3 px-6 rounded-xl hover:bg-red-700 transition-all"
+                          >
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
+                            </svg>
+                            <span>Cancel Listing</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleList(domainToShow)}
+                            className="w-full flex items-center justify-center space-x-2 bg-green-600 text-white py-3 px-6 rounded-xl hover:bg-green-700 transition-all"
+                          >
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd"/>
+                            </svg>
+                            <span>List Domain</span>
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      // Actions for non-owned domains
+                      <div className="space-y-3">
+                        {isOwned && (
+                          <button
+                            onClick={() => handleMessage(domainToShow)}
+                            className="w-full flex items-center justify-center space-x-2 bg-green-600 text-white py-3 px-6 rounded-xl hover:bg-green-700 transition-all"
+                          >
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
+                              <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+                            </svg>
+                            <span>Message Owner</span>
+                          </button>
+                        )}
+
                         <button
-                          onClick={() => handleMessage(domainToShow)}
-                          className="w-full flex items-center justify-center space-x-2 bg-green-600 text-white py-3 px-6 rounded-xl hover:bg-green-700 transition-all"
+                          onClick={() => handleOffer(domainToShow)}
+                          className="w-full flex items-center justify-center space-x-2 border border-purple-400 text-purple-400 py-3 px-6 rounded-xl hover:bg-purple-400/10 transition-all"
                         >
                           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
-                            <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+                            <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"/>
                           </svg>
-                          <span>Message Owner</span>
+                          <span>{isOwned ? 'Make Offer' : 'Claim Domain'}</span>
                         </button>
-                      )}
-
-                      <button
-                        onClick={() => handleOffer(domainToShow)}
-                        className="w-full flex items-center justify-center space-x-2 border border-purple-400 text-purple-400 py-3 px-6 rounded-xl hover:bg-purple-400/10 transition-all"
-                      >
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"/>
-                        </svg>
-                        <span>{isOwned ? 'Make Offer' : 'Claim Domain'}</span>
-                      </button>
-                    </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1470,6 +1651,10 @@ export default function DomainMarketplace() {
                     getTldColor={getTldColor}
                     onMessage={handleMessage}
                     onTransactionSuccess={handleTransactionSuccess}
+                    onBuy={handleBuy}
+                    onOffer={handleOffer}
+                    onList={handleList}
+                    onCancelListing={handleCancelListing}
                     userAddress={address}
                     onDomainClick={handleDomainClick}
                   />
@@ -1622,8 +1807,13 @@ export default function DomainMarketplace() {
                             getTldColor={getTldColor}
                             onMessage={handleMessage}
                             onTransactionSuccess={handleTransactionSuccess}
+                            onBuy={handleBuy}
+                            onOffer={handleOffer}
+                            onList={handleList}
+                            onCancelListing={handleCancelListing}
                             userAddress={address}
-                            onDomainClick={handleDomainClick}
+                            onDomainClick={handleOwnedDomainClick}
+                            forceOwned={true}
                           />
                           {hasNextOwned && (
                             <LoadMoreButton onClick={fetchNextOwnedPage} text="Load More Domains" />
@@ -1671,6 +1861,10 @@ export default function DomainMarketplace() {
                             getTldColor={getTldColor}
                             onMessage={handleMessage}
                             onTransactionSuccess={handleTransactionSuccess}
+                            onBuy={handleBuy}
+                            onOffer={handleOffer}
+                            onList={handleList}
+                            onCancelListing={handleCancelListing}
                             userAddress={address}
                             onDomainClick={handleDomainClick}
                           />
@@ -1832,6 +2026,9 @@ export default function DomainMarketplace() {
           onMessage={handleMessage}
           onBuy={handleBuy}
           onOffer={handleOffer}
+          onList={handleList}
+          onCancelListing={handleCancelListing}
+          userAddress={address}
         />
       )}
 

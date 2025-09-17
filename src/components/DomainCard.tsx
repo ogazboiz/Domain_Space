@@ -10,10 +10,15 @@ interface DomainCardProps {
   getTldColor: (tld: string) => string;
   onMessage?: (domain: Name) => void;
   onTransactionSuccess?: (type: 'buy' | 'offer', domain: Name, result: unknown) => void;
+  onBuy?: (domain: Name) => void;
+  onOffer?: (domain: Name) => void;
+  onList?: (domain: Name) => void;
+  onCancelListing?: (domain: Name) => void;
   userAddress?: string;
   onWatch?: (domain: Name) => void;
   isWatched?: (domainName: string) => boolean;
   onClick?: (domain: Name) => void;
+  forceOwned?: boolean;
 }
 
 const DomainCard = ({
@@ -22,10 +27,15 @@ const DomainCard = ({
   getTldColor,
   onMessage,
   onTransactionSuccess,
+  onBuy,
+  onOffer,
+  onList,
+  onCancelListing,
   userAddress,
   onWatch,
   isWatched,
-  onClick
+  onClick,
+  forceOwned = false
 }: DomainCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -34,16 +44,40 @@ const DomainCard = ({
   const isListed = !!listing;
   const tld = domain.name.split('.').pop() || '';
   const isOwned = !!domain.claimedBy;
-  const isOwnedByUser = userAddress && domain.claimedBy &&
-    domain.claimedBy.toLowerCase().includes(userAddress.toLowerCase());
+  const isOwnedByUser = forceOwned || (userAddress && domain.claimedBy &&
+    domain.claimedBy.split(':')[2]?.toLowerCase() === userAddress.toLowerCase());
 
-  const handleBuyClick = useCallback(() => {
-    alert(`Buy ${domain.name}\n\nThis would open a buy dialog or process the purchase.`);
-  }, [domain.name]);
+  const handleBuyClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
 
-  const handleOfferClick = useCallback(() => {
-    alert(`Make Offer for ${domain.name}\n\nThis would open an offer dialog.`);
-  }, [domain.name]);
+    if (onBuy) {
+      onBuy(domain);
+    }
+  }, [domain, onBuy]);
+
+  const handleOfferClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (onOffer) {
+      onOffer(domain);
+    }
+  }, [domain, onOffer]);
+
+  const handleListClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (onList) {
+      onList(domain);
+    }
+  }, [domain, onList]);
+
+  const handleCancelListingClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (onCancelListing) {
+      onCancelListing(domain);
+    }
+  }, [domain, onCancelListing]);
 
   const handleWatchClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -180,83 +214,110 @@ const DomainCard = ({
 
         {/* Action Buttons */}
         <div className="flex flex-col space-y-2">
-          {isListed ? (
+          {isOwnedByUser ? (
+            // Buttons for domains owned by the current user
             <div className="flex space-x-2">
+              {isListed ? (
+                <button
+                  onClick={handleCancelListingClick}
+                  className="text-white hover:opacity-90 transition-opacity font-medium text-xs w-full"
+                  style={{
+                    height: '32px',
+                    borderRadius: '16px',
+                    opacity: 1,
+                    padding: '6px 12px',
+                    backgroundColor: '#EF4444'
+                  }}
+                >
+                  Cancel Listing
+                </button>
+              ) : (
+                <button
+                  onClick={handleListClick}
+                  className="text-white hover:opacity-90 transition-opacity font-medium text-xs w-full"
+                  style={{
+                    height: '32px',
+                    borderRadius: '16px',
+                    opacity: 1,
+                    padding: '6px 12px',
+                    backgroundColor: '#10B981'
+                  }}
+                >
+                  List Domain
+                </button>
+              )}
+            </div>
+          ) : (
+            // Buttons for domains not owned by the current user
+            <>
+              {isListed ? (
+                <div className="flex space-x-2">
+                  <button
+                    onClick={handleBuyClick}
+                    className="text-white hover:opacity-90 transition-opacity font-medium text-xs flex-1"
+                    style={{
+                      height: '32px',
+                      borderRadius: '16px',
+                      opacity: 1,
+                      padding: '6px 12px',
+                      backgroundColor: '#773BAC'
+                    }}
+                  >
+                    Buy
+                  </button>
+                  <button
+                    onClick={handleOfferClick}
+                    className="text-white hover:bg-white/10 transition-colors font-medium text-xs flex-1"
+                    style={{
+                      height: '32px',
+                      borderRadius: '16px',
+                      borderWidth: '1px',
+                      opacity: 1,
+                      padding: '6px 12px',
+                      border: '1px solid #FFFFFF',
+                      backgroundColor: 'transparent'
+                    }}
+                  >
+                    Offer
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={handleOfferClick}
+                  className="text-white hover:opacity-90 transition-opacity font-medium text-xs w-full"
+                  style={{
+                    height: '32px',
+                    borderRadius: '16px',
+                    opacity: 1,
+                    padding: '6px 12px',
+                    backgroundColor: isOwned ? '#6B7280' : '#773BAC'
+                  }}
+                >
+                  {isOwned ? 'Offer' : 'Claim'}
+                </button>
+              )}
+
+              {/* Message Button - Only show if not owned by user */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleBuyClick();
+                  console.log('Message button clicked for domain:', domain.name, 'owner:', domain.claimedBy);
+                  onMessage?.(domain);
                 }}
-                className="text-white hover:opacity-90 transition-opacity font-medium text-xs flex-1"
-                style={{
-                  height: '32px',
-                  borderRadius: '16px',
-                  opacity: 1,
-                  padding: '6px 12px',
-                  backgroundColor: '#773BAC'
-                }}
-              >
-                Buy
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleOfferClick();
-                }}
-                className="text-white hover:bg-white/10 transition-colors font-medium text-xs flex-1"
+                className="text-white hover:bg-white/10 transition-colors font-medium text-xs w-full"
                 style={{
                   height: '32px',
                   borderRadius: '16px',
                   borderWidth: '1px',
                   opacity: 1,
                   padding: '6px 12px',
-                  border: '1px solid #FFFFFF',
+                  border: '1px solid #10B981',
                   backgroundColor: 'transparent'
                 }}
               >
-                Offer
+                💬 Message Owner
               </button>
-            </div>
-          ) : (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleOfferClick();
-              }}
-              className="text-white hover:opacity-90 transition-opacity font-medium text-xs w-full"
-              style={{
-                height: '32px',
-                borderRadius: '16px',
-                opacity: 1,
-                padding: '6px 12px',
-                backgroundColor: isOwned ? '#6B7280' : '#773BAC'
-              }}
-            >
-              {isOwned ? 'Offer' : 'Claim'}
-            </button>
-          )}
-          
-          {/* Message Button - Only show if not owned by user */}
-          {!isOwnedByUser && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                console.log('Message button clicked for domain:', domain.name, 'owner:', domain.claimedBy);
-                onMessage?.(domain);
-              }}
-              className="text-white hover:bg-white/10 transition-colors font-medium text-xs w-full"
-              style={{
-                height: '32px',
-                borderRadius: '16px',
-                borderWidth: '1px',
-                opacity: 1,
-                padding: '6px 12px',
-                border: '1px solid #10B981',
-                backgroundColor: 'transparent'
-              }}
-            >
-              💬 Message Owner
-            </button>
+            </>
           )}
         </div>
       </div>

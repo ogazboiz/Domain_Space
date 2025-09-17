@@ -229,6 +229,8 @@ export default function DomainActionModal({
   const tld = domain.name.split('.').pop() || '';
   const domainPrice = domain.tokens?.[0]?.listings?.[0]?.price;
   const isOwned = !!domain.claimedBy;
+  const isOwnedByUser = userAddress && domain.claimedBy &&
+    domain.claimedBy.split(':')[2]?.toLowerCase() === userAddress.toLowerCase();
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -265,9 +267,9 @@ export default function DomainActionModal({
         <div className="flex border-b border-gray-700">
           {[
             { id: 'details', label: '📋 Details', enabled: true },
-            { id: 'offer', label: '💰 Make Offer', enabled: isOwned },
-            { id: 'buy', label: '🛒 Buy Now', enabled: !!domainPrice },
-            { id: 'message', label: '💬 Message', enabled: isOwned }
+            { id: 'offer', label: '💰 Make Offer', enabled: isOwned && !isOwnedByUser },
+            { id: 'buy', label: '🛒 Buy Now', enabled: !!domainPrice && !isOwnedByUser },
+            { id: 'message', label: '💬 Message', enabled: isOwned && !isOwnedByUser }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -317,6 +319,17 @@ export default function DomainActionModal({
 
               <div className="bg-gray-800/50 rounded-lg p-4">
                 <h4 className="text-lg font-medium text-white mb-3">Domain Info</h4>
+                {isOwnedByUser && (
+                  <div className="bg-green-900/20 border border-green-700 rounded-lg p-3 mb-3">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-green-400">✓</span>
+                      <span className="text-green-400 font-medium">You own this domain</span>
+                    </div>
+                    <p className="text-gray-300 text-sm mt-1">
+                      Use the domain details page to list this domain for sale.
+                    </p>
+                  </div>
+                )}
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-gray-400">Status</span>
@@ -328,7 +341,7 @@ export default function DomainActionModal({
                     <div className="flex justify-between">
                       <span className="text-gray-400">Owner</span>
                       <span className="text-gray-300 font-mono text-sm">
-                        {domain.claimedBy?.split(':')[2]?.slice(0, 6)}...{domain.claimedBy?.split(':')[2]?.slice(-4)}
+                        {isOwnedByUser ? 'You' : `${domain.claimedBy?.split(':')[2]?.slice(0, 6)}...${domain.claimedBy?.split(':')[2]?.slice(-4)}`}
                       </span>
                     </div>
                   )}
