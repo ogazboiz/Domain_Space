@@ -116,7 +116,7 @@ export default function DomainActionModal({
     try {
       setIsLoading(true);
 
-      const chainId = token.networkId || 'eip155:97476';
+      const chainId = (token.networkId || 'eip155:97476') as `eip155:${number}`;
       await walletClient.switchChain({
         id: Number(parseCAIP10(chainId).chainId),
       });
@@ -141,6 +141,8 @@ export default function DomainActionModal({
       const createdOffer = await createOffer({
         params,
         chainId,
+        signer: viemToEthersSigner(walletClient, chainId),
+        currencies: currencies,
         onProgress: (progress: any) => {
           progress.forEach((step: any, index: any) => {
             toast(step.description, {
@@ -176,7 +178,7 @@ export default function DomainActionModal({
     try {
       setIsLoading(true);
 
-      const chainId = token.networkId || 'eip155:97476';
+      const chainId = (token.networkId || 'eip155:97476') as `eip155:${number}`;
       await walletClient.switchChain({
         id: Number(parseCAIP10(chainId).chainId),
       });
@@ -188,6 +190,7 @@ export default function DomainActionModal({
       await buyListing({
         params,
         chainId,
+        signer: viemToEthersSigner(walletClient, chainId),
         onProgress: (progress) => {
           progress.forEach((step, index) => {
             toast(step.description, {

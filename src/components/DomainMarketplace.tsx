@@ -14,6 +14,8 @@ import DomainDetailPage from "./DomainDetailPage";
 import DialogCheckingDM from "./DialogCheckingDM";
 import DomainActionModal from "./DomainActionModal";
 import ImprovedXMTPChat from "./chat/ImprovedXMTPChat";
+import ListDomainModal from "./ListDomainModal";
+import CancelListingModal from "./CancelListingModal";
 
 // TLD color mappings - using exact hex colors like in the image
 const TLD_COLORS: Record<string, string> = {
@@ -472,6 +474,11 @@ export default function DomainMarketplace() {
   const [showCheckingDM, setShowCheckingDM] = useState(false);
   const [selectedUserAddress, setSelectedUserAddress] = useState<string>("");
 
+  // State for listing modals
+  const [showListModal, setShowListModal] = useState(false);
+  const [showCancelListingModal, setShowCancelListingModal] = useState(false);
+  const [domainToList, setDomainToList] = useState<Name | null>(null);
+
   // Ref for chat domain search dropdown
   const chatSearchRef = useRef<HTMLDivElement>(null);
 
@@ -730,6 +737,26 @@ export default function DomainMarketplace() {
   const ownedDomainsCount = ownedDomainsData?.pages?.[0]?.totalCount ?? 0;
   const watchedDomainsCount = watchedDomainsData?.pages?.[0]?.totalCount ?? 0;
 
+  // Calculate portfolio value from owned domains' listings
+  const portfolioValue = useMemo(() => {
+    if (!ownedDomainsData?.pages) return 0;
+
+    let totalValue = 0;
+    ownedDomainsData.pages.forEach(page => {
+      page.items.forEach(domain => {
+        const listing = domain.tokens?.[0]?.listings?.[0];
+        if (listing) {
+          // Convert price from wei to readable format and calculate USD value
+          const priceInTokens = parseFloat(listing.price) / Math.pow(10, listing.currency.decimals);
+          const usdValue = priceInTokens * (listing.currency.usdExchangeRate || 0);
+          totalValue += usdValue;
+        }
+      });
+    });
+
+    return totalValue;
+  }, [ownedDomainsData]);
+
   // Format price utility
   const formatPrice = useCallback((price: string, decimals: number) => {
     const value = parseFloat(price) / Math.pow(10, decimals);
@@ -797,13 +824,27 @@ export default function DomainMarketplace() {
   }, []);
 
   const handleList = useCallback((domain: Name) => {
-    // TODO: Implement listing functionality - open list domain modal
-    alert(`List ${domain.name}\n\nThis would open a list domain dialog where you can set the price and list your domain for sale.`);
+    setDomainToList(domain);
+    setShowListModal(true);
   }, []);
 
   const handleCancelListing = useCallback((domain: Name) => {
-    // TODO: Implement cancel listing functionality
-    alert(`Cancel Listing for ${domain.name}\n\nThis would cancel the current listing and remove the domain from the marketplace.`);
+    setDomainToList(domain);
+    setShowCancelListingModal(true);
+  }, []);
+
+  const handleListingSuccess = useCallback((domain: Name) => {
+    // Close modal and clear state - data will refresh automatically
+    setShowListModal(false);
+    setDomainToList(null);
+    console.log(`Domain ${domain.name} listed successfully`);
+  }, []);
+
+  const handleCancelListingSuccess = useCallback((domain: Name) => {
+    // Close modal and clear state - data will refresh automatically
+    setShowCancelListingModal(false);
+    setDomainToList(null);
+    console.log(`Listing for ${domain.name} canceled successfully`);
   }, []);
 
   const handleDMCreated = useCallback((dmId: string, userAddress: string) => {
@@ -1711,7 +1752,12 @@ export default function DomainMarketplace() {
                       <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
                         <span className="text-2xl">📈</span>
                       </div>
-                      <span className="text-2xl font-bold text-green-400">$0</span>
+                      <span className="text-2xl font-bold text-green-400">
+                        ${portfolioValue.toLocaleString('en-US', {
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0
+                        })}
+                      </span>
                     </div>
                     <h3 className="text-white font-semibold text-lg mb-1">Portfolio Value</h3>
                     <p className="text-gray-400 text-sm">Total estimated value</p>
@@ -2066,6 +2112,28 @@ export default function DomainMarketplace() {
           userAddress={address}
         />
       )}
+
+      {/* List Domain Modal */}
+      <ListDomainModal
+        domain={domainToList}
+        isOpen={showListModal}
+        onClose={() => {
+          setShowListModal(false);
+          setDomainToList(null);
+        }}
+        onSuccess={handleListingSuccess}
+      />
+
+      {/* Cancel Listing Modal */}
+      <CancelListingModal
+        domain={domainToList}
+        isOpen={showCancelListingModal}
+        onClose={() => {
+          setShowCancelListingModal(false);
+          setDomainToList(null);
+        }}
+        onSuccess={handleCancelListingSuccess}
+      />
 
     </section>
   );

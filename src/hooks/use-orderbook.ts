@@ -1,194 +1,215 @@
-import { useState, useCallback } from 'react';
-import { useWalletClient, useAccount } from 'wagmi';
+import { domaConfig } from "@/configs/doma";
+import { useWalletClient } from 'wagmi';
 import {
-  DomaOrderbookSDK,
-  type CreateOfferParams,
-  type BuyListingParams,
-  type CurrencyToken,
-  type OrderbookFee,
-  type GetSupportedCurrenciesRequest,
-  type GetOrderbookFeeRequest,
+  AcceptOfferParams,
+  AcceptOfferResult,
+  ApiClient,
+  BuyListingParams,
+  BuyListingResult,
+  Caip2ChainId,
+  CancelListingParams,
+  CancelListingResult,
+  CancelOfferParams,
+  CancelOfferResult,
+  CreateListingParams,
+  CreateListingResult,
+  CreateOfferParams,
+  CreateOfferResult,
+  CurrencyToken,
+  GetOrderbookFeeRequest,
+  GetSupportedCurrenciesRequest,
+  OnProgressCallback,
+  RequestOptions,
   viemToEthersSigner,
-  type OnProgressCallback
-} from '@doma-protocol/orderbook-sdk';
-import { domaConfig } from '@/configs/doma';
-import { Name } from '@/types/doma';
-import { parseUnits } from 'viem';
-
-// Define a proper result type
-interface OrderbookResult {
-  orderId?: string;
-  transactionHash?: string;
-  success?: boolean;
-  [key: string]: unknown;
-}
+} from "@doma-protocol/orderbook-sdk";
+import { JsonRpcSigner } from "ethers";
 
 export const useOrderbook = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [currencies, setCurrencies] = useState<CurrencyToken[]>([]);
-  const [fees, setFees] = useState<OrderbookFee[]>([]);
-
+  const apiClient: ApiClient = new ApiClient(domaConfig.apiClientOptions);
   const { data: walletClient } = useWalletClient();
-  const { address } = useAccount();
 
-  const clearError = useCallback(() => setError(null), []);
-
-  // Initialize SDK
-  const getSDK = useCallback(() => {
-    return new DomaOrderbookSDK(domaConfig);
-  }, []);
-
-  // Get supported currencies
-  const getSupportedCurrencies = useCallback(async (params: GetSupportedCurrenciesRequest) => {
-    try {
-      const sdk = getSDK();
-      const result = await sdk.getSupportedCurrencies(params);
-      setCurrencies(result.currencies.filter(c => c.contractAddress));
-      return result;
-    } catch (err: unknown) {
-      console.error('Failed to get currencies:', err);
-      setError((err as Error)?.message || 'Failed to get supported currencies');
-      return { currencies: [] };
-    }
-  }, [getSDK]);
-
-  // Get orderbook fees
-  const getOrderbookFee = useCallback(async (params: GetOrderbookFeeRequest) => {
-    try {
-      const sdk = getSDK();
-      const result = await sdk.getOrderbookFee(params);
-      setFees(result.marketplaceFees || []);
-      return result;
-    } catch (err: unknown) {
-      console.error('Failed to get fees:', err);
-      setError((err as Error)?.message || 'Failed to get orderbook fees');
-      return { marketplaceFees: [] };
-    }
-  }, [getSDK]);
-
-  // Buy listing instantly
-  const buyListing = useCallback(async ({
+  const createOffer = async ({
     params,
-    chainId,
-    onProgress
-  }: {
-    params: BuyListingParams;
-    chainId: string;
-    onProgress?: OnProgressCallback;
-  }): Promise<OrderbookResult | null> => {
-    if (!address || !walletClient) {
-      setError('Please connect your wallet');
-      return null;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const sdk = getSDK();
-      const signer = viemToEthersSigner(walletClient, chainId as `eip155:${number}`);
-
-      console.log('🛒 Buying listing:', params);
-
-      const result = await sdk.buyListing({
-        params,
-        signer,
-        chainId: chainId as `eip155:${number}`,
-        onProgress: onProgress || (() => {})
-      });
-
-      console.log('✅ Purchase successful:', result);
-      return result as unknown as OrderbookResult;
-
-    } catch (err: unknown) {
-      const errorMessage = (err as Error)?.message || 'Failed to buy listing';
-      console.error('❌ Purchase failed:', err);
-      setError(errorMessage);
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [address, walletClient, getSDK]);
-
-  // Create offer
-  const createOffer = useCallback(async ({
-    params,
+    signer,
     chainId,
     onProgress,
-    hasWethOffer = false
+    hasWethOffer,
+    currencies,
   }: {
     params: CreateOfferParams;
-    chainId: string;
+    signer: JsonRpcSigner;
+    chainId: Caip2ChainId;
+    onProgress: OnProgressCallback;
+    hasWethOffer: boolean;
+    currencies: CurrencyToken[];
+  }): Promise<CreateOfferResult> => {
+    const { CreateOfferHandler } = await import("@/seaport-helpers/create-offer");
+    const handler = new CreateOfferHandler(
+      domaConfig,
+      apiClient,
+      signer,
+      chainId,
+      onProgress,
+      {
+        seaportBalanceAndApprovalChecksOnOrderCreation: !hasWethOffer,
+      },
+      currencies
+    );
+
+    return handler.execute(params);
+  };
+
+  const acceptOffer = async ({
+    params,
+    signer,
+    chainId,
+    onProgress,
+  }: {
+    params: AcceptOfferParams;
+    signer: JsonRpcSigner;
+    chainId: Caip2ChainId;
+    onProgress: OnProgressCallback;
+  }): Promise<AcceptOfferResult> => {
+    const { AcceptOfferHandler } = await import("@/seaport-helpers/accept-offer");
+    const handler = new AcceptOfferHandler(
+      domaConfig,
+      apiClient,
+      signer,
+      chainId,
+      onProgress
+    );
+
+    return handler.execute(params);
+  };
+
+  const cancelOffer = async ({
+    params,
+    signer,
+    chainId,
+    onProgress,
+  }: {
+    params: CancelOfferParams;
+    signer: JsonRpcSigner;
+    chainId: Caip2ChainId;
+    onProgress: OnProgressCallback;
+  }): Promise<CancelOfferResult> => {
+    const { CancelOfferHandler } = await import("@/seaport-helpers/cancel-offer");
+    const handler = new CancelOfferHandler(
+      domaConfig,
+      apiClient,
+      signer,
+      chainId,
+      onProgress
+    );
+
+    return handler.execute(params);
+  };
+
+  const buyListing = async ({
+    params,
+    signer,
+    chainId,
+    onProgress,
+  }: {
+    params: BuyListingParams;
+    signer: JsonRpcSigner;
+    chainId: Caip2ChainId;
+    onProgress: OnProgressCallback;
+  }): Promise<BuyListingResult> => {
+    const { BuyListingHandler } = await import("@/seaport-helpers/buy-listing");
+    const handler = new BuyListingHandler(
+      domaConfig,
+      apiClient,
+      signer,
+      chainId,
+      onProgress
+    );
+
+    return handler.execute(params);
+  };
+
+  const cancelListing = async ({
+    params,
+    signer,
+    chainId,
+    onProgress,
+  }: {
+    params: CancelListingParams;
+    signer?: JsonRpcSigner | null;
+    chainId: Caip2ChainId;
     onProgress?: OnProgressCallback;
-    hasWethOffer?: boolean;
-  }): Promise<OrderbookResult | null> => {
-    if (!address || !walletClient) {
-      setError('Please connect your wallet');
-      return null;
+  }): Promise<CancelListingResult> => {
+    // Create signer if not provided
+    const ethersSigner = signer || (walletClient ? viemToEthersSigner(walletClient, chainId) : null);
+
+    if (!ethersSigner) {
+      throw new Error("No wallet connected or signer provided");
     }
 
-    setIsLoading(true);
-    setError(null);
+    const { CancelListingHandler } = await import("@/seaport-helpers/cancel-listing");
+    const handler = new CancelListingHandler(
+      domaConfig,
+      apiClient,
+      ethersSigner,
+      chainId,
+      onProgress || (() => {})
+    );
 
-    try {
-      const sdk = getSDK();
-      const signer = viemToEthersSigner(walletClient, chainId as `eip155:${number}`);
+    return handler.execute(params);
+  };
 
-      console.log('💰 Creating offer:', params);
+  const createListing = async ({
+    params,
+    signer,
+    chainId,
+    onProgress,
+  }: {
+    params: CreateListingParams;
+    signer?: JsonRpcSigner | null;
+    chainId: Caip2ChainId;
+    onProgress?: OnProgressCallback;
+  }): Promise<CreateListingResult> => {
+    // Create signer if not provided
+    const ethersSigner = signer || (walletClient ? viemToEthersSigner(walletClient, chainId) : null);
 
-      const result = await sdk.createOffer({
-        params,
-        signer,
-        chainId: chainId as `eip155:${number}`,
-        onProgress: onProgress || (() => {})
-      });
-
-      console.log('✅ Offer created successfully:', result);
-      return result as unknown as OrderbookResult;
-
-    } catch (err: unknown) {
-      const errorMessage = (err as Error)?.message || 'Failed to create offer';
-      console.error('❌ Offer creation failed:', err);
-      setError(errorMessage);
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [address, walletClient, getSDK]);
-
-  // Helper function to prepare domain for buy/offer operations
-  const prepareDomainData = useCallback((domain: Name) => {
-    // Extract token data from domain
-    const token = domain.tokens?.[0];
-    if (!token) {
-      throw new Error('Domain token data not found');
+    if (!ethersSigner) {
+      throw new Error("No wallet connected or signer provided");
     }
 
-    return {
-      tokenAddress: token.tokenAddress,
-      tokenId: token.tokenId,
-      chainId: token.chain?.networkId || 'eip155:97476', // Default to Doma testnet
-      listings: token.listings || []
-    };
-  }, []);
+    const { ListingHandler } = await import("@/seaport-helpers/create-listing");
+    const handler = new ListingHandler(
+      domaConfig,
+      apiClient,
+      ethersSigner,
+      chainId,
+      onProgress || (() => {})
+    );
+
+    return handler.execute(params);
+  };
+
+  const getSupportedCurrencies = (
+    params: GetSupportedCurrenciesRequest,
+    options?: RequestOptions
+  ) => {
+    return apiClient.getSupportedCurrencies(params, options);
+  };
+
+  const getOrderbookFee = (
+    params: GetOrderbookFeeRequest,
+    options?: RequestOptions
+  ) => {
+    return apiClient.getOrderbookFee(params, options);
+  };
 
   return {
-    // Actions
-    buyListing,
+    acceptOffer,
     createOffer,
+    createListing,
+    cancelOffer,
+    buyListing,
+    cancelListing,
     getSupportedCurrencies,
     getOrderbookFee,
-    prepareDomainData,
-
-    // State
-    isLoading,
-    error,
-    currencies,
-    fees,
-    clearError,
-
-    // Utilities
-    isWalletConnected: !!address,
   };
 };

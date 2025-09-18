@@ -10,7 +10,10 @@ import {
   BuyListingParams,
   CurrencyToken,
   OrderbookType,
+  OrderbookFee,
+  viemToEthersSigner,
 } from "@doma-protocol/orderbook-sdk";
+import { useWalletClient } from "wagmi";
 
 interface OfferBuyModalProps {
   domain: Name | null;
@@ -29,52 +32,92 @@ export default function OfferBuyModal({
   const [offerAmount, setOfferAmount] = useState('');
   const [expirationDays, setExpirationDays] = useState('7');
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyToken | null>(null);
+  const [currencies, setCurrencies] = useState<CurrencyToken[]>([]);
+  const [fees, setFees] = useState<OrderbookFee[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const {
-    buyListing,
-    createOffer,
-    getSupportedCurrencies,
-    getOrderbookFee,
-    prepareDomainData,
-    isLoading,
-    error,
-    currencies,
-    fees,
-    clearError,
-  } = useOrderbook();
+  const { data: walletClient } = useWalletClient();
+  const { buyListing, createOffer, getSupportedCurrencies, getOrderbookFee } = useOrderbook();
+
+  const clearError = useCallback(() => setError(null), []);
 
   const { formatLargeNumber } = useHelper();
+
+  // Helper function to prepare domain data
+  const prepareDomainData = useCallback((domain: Name) => {
+    const token = domain.tokens?.[0];
+    if (!token) {
+      throw new Error('Domain token data not found');
+    }
+
+    return {
+      tokenAddress: token.tokenAddress,
+      tokenId: token.tokenId,
+      chainId: token.chain?.networkId || 'eip155:97476',
+      listings: token.listings || []
+    };
+  }, []);
+
+  // Get currencies
+  const getCurrencies = useCallback(async () => {
+    if (!domain) return;
+
+    try {
+      const domainData = prepareDomainData(domain);
+
+      if (domainData.listings.length > 0) {
+        const supportedCurrencies = await getSupportedCurrencies({
+          chainId: domainData.chainId,
+          orderbook: domainData.listings[0].orderbook as OrderbookType,
+          contractAddress: domainData.tokenAddress,
+        });
+
+        const result = supportedCurrencies.currencies.filter(
+          (c: CurrencyToken) => c.contractAddress
+        );
+
+        setCurrencies(result);
+
+        if (result.length && !selectedCurrency) {
+          setSelectedCurrency(result[0]);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to get currencies:', err);
+      setError('Failed to load supported currencies');
+    }
+  }, [domain, prepareDomainData, getSupportedCurrencies, selectedCurrency]);
+
+  // Get fees
+  const getFees = useCallback(async () => {
+    if (!domain) return;
+
+    try {
+      const domainData = prepareDomainData(domain);
+
+      if (domainData.listings.length > 0) {
+        const feesResult = await getOrderbookFee({
+          chainId: domainData.chainId,
+          contractAddress: domainData.tokenAddress,
+          orderbook: domainData.listings[0].orderbook as OrderbookType,
+        });
+
+        setFees(feesResult.marketplaceFees || []);
+      }
+    } catch (err) {
+      console.error('Failed to get fees:', err);
+      setError('Failed to load marketplace fees');
+    }
+  }, [domain, prepareDomainData, getOrderbookFee]);
 
   // Initialize currencies and fees when modal opens
   useEffect(() => {
     if (!isOpen || !domain) return;
 
-    const initializeData = async () => {
-      try {
-        const domainData = prepareDomainData(domain);
-
-        if (domainData.listings.length > 0) {
-          // Get supported currencies
-          await getSupportedCurrencies({
-            chainId: domainData.chainId,
-            orderbook: domainData.listings[0].orderbook as OrderbookType,
-            contractAddress: domainData.tokenAddress,
-          });
-
-          // Get fees
-          await getOrderbookFee({
-            chainId: domainData.chainId,
-            contractAddress: domainData.tokenAddress,
-            orderbook: domainData.listings[0].orderbook as OrderbookType,
-          });
-        }
-      } catch (err) {
-        console.error('Failed to initialize modal data:', err);
-      }
-    };
-
-    initializeData();
-  }, [isOpen, domain, prepareDomainData, getSupportedCurrencies, getOrderbookFee]);
+    getCurrencies();
+    getFees();
+  }, [isOpen, domain, getCurrencies, getFees]);
 
   // Set default currency when currencies are loaded
   useEffect(() => {
@@ -84,13 +127,16 @@ export default function OfferBuyModal({
   }, [currencies, selectedCurrency]);
 
   const handleBuy = useCallback(async () => {
-    if (!domain) return;
+    if (!domain || !walletClient) return;
+
+    setIsLoading(true);
+    setError(null);
 
     try {
       const domainData = prepareDomainData(domain);
 
       if (!domainData.listings.length) {
-        alert('This domain is not available for instant purchase.');
+        setError('This domain is not available for instant purchase.');
         return;
       }
 
@@ -106,6 +152,7 @@ export default function OfferBuyModal({
             console.log(`Step ${index + 1}: ${step.description} - ${step.status}`);
           });
         },
+        signer: viemToEthersSigner(walletClient, domainData.chainId),
       });
 
       if (result) {
@@ -115,14 +162,20 @@ export default function OfferBuyModal({
 
     } catch (err) {
       console.error('Buy failed:', err);
+      setError((err as Error)?.message || 'Failed to purchase domain');
+    } finally {
+      setIsLoading(false);
     }
-  }, [domain, prepareDomainData, buyListing, onSuccess, onClose]);
+  }, [domain, walletClient, prepareDomainData, buyListing, onSuccess, onClose]);
 
   const handleOffer = useCallback(async () => {
-    if (!domain || !offerAmount || !selectedCurrency) {
-      alert('Please fill in all offer details.');
+    if (!domain || !offerAmount || !selectedCurrency || !walletClient) {
+      setError('Please fill in all offer details and connect your wallet.');
       return;
     }
+
+    setIsLoading(true);
+    setError(null);
 
     try {
       const domainData = prepareDomainData(domain);
@@ -146,12 +199,14 @@ export default function OfferBuyModal({
       const result = await createOffer({
         params,
         chainId: domainData.chainId,
-        hasWethOffer: selectedCurrency.symbol?.toLowerCase() === 'weth',
         onProgress: (progress) => {
           progress.forEach((step, index) => {
             console.log(`Step ${index + 1}: ${step.description} - ${step.status}`);
           });
         },
+        signer: viemToEthersSigner(walletClient, domainData.chainId),
+        hasWethOffer: selectedCurrency.symbol?.toLowerCase() === 'weth',
+        currencies,
       });
 
       if (result) {
@@ -163,8 +218,11 @@ export default function OfferBuyModal({
 
     } catch (err) {
       console.error('Offer failed:', err);
+      setError((err as Error)?.message || 'Failed to create offer');
+    } finally {
+      setIsLoading(false);
     }
-  }, [domain, offerAmount, selectedCurrency, expirationDays, prepareDomainData, createOffer, fees, onSuccess, onClose]);
+  }, [domain, offerAmount, selectedCurrency, walletClient, expirationDays, prepareDomainData, createOffer, fees, currencies, onSuccess, onClose]);
 
   if (!isOpen || !domain) return null;
 
