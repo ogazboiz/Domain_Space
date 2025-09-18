@@ -43,45 +43,55 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [address, signMessageAsync]);
 
-  // Connect to XMTP (exact domainline pattern)
+  // Core connection logic without auto-revoke to avoid circular dependency
+  const connectXmtpCore = useCallback(async () => {
+    if (!address) return;
+
+    const canMessage = await Client.canMessage([
+      { identifier: address as string, identifierKind: "Ethereum" },
+    ]);
+
+    if (canMessage.get(address as string)) {
+      // Try to build existing client (avoids re-signing)
+      const existingClient = await Client.build(
+        { identifier: address as string, identifierKind: "Ethereum" },
+        { env: "dev" }
+      );
+      setClient(existingClient);
+      console.log("Built existing XMTP client");
+    } else {
+      // Create new client (requires signing)
+      const newClient = await Client.create(signer, { env: "dev" });
+      console.log("Created new XMTP client");
+      setClient(newClient);
+    }
+  }, [address, signer]);
+
+  // Connect to XMTP with auto-revoke on installation limit
   const connectXmtp = useCallback(async () => {
     if (!address) return;
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      const canMessage = await Client.canMessage([
-        { identifier: address as string, identifierKind: "Ethereum" },
-      ]);
-      
-      if (canMessage.get(address as string)) {
-        // Try to build existing client (avoids re-signing)
-        const existingClient = await Client.build(
-          { identifier: address as string, identifierKind: "Ethereum" },
-          { env: "dev" }
-        );
-        setClient(existingClient);
-        console.log("Built existing XMTP client");
-      } else {
-        // Create new client (requires signing)
-        const newClient = await Client.create(signer, { env: "dev" });
-        console.log("Created new XMTP client");
-        setClient(newClient);
-      }
+      await connectXmtpCore();
     } catch (err) {
       console.error("Failed to connect to XMTP:", err);
       const errorMessage = err instanceof Error ? err.message : "Failed to connect to XMTP";
 
-      // Check if it's the installation limit error
+      // Check if it's the installation limit error and auto-revoke
       if (errorMessage.includes('10/10 installations')) {
-        setError('XMTP installation limit reached. Click "Revoke Installations" to continue.');
+        console.log('🔄 Installation limit reached, attempting auto-revoke...');
+        setError('Installation limit reached. Cleaning up old installations...');
+        // Auto-revoke installations and retry
+        await revokeInstallations();
       } else {
         setError(errorMessage);
       }
     } finally {
       setIsLoading(false);
     }
-  }, [address, signer]);
+  }, [address, connectXmtpCore, revokeInstallations]);
 
   // Function to revoke old installations using static revocation
   const revokeInstallations = useCallback(async () => {
@@ -94,38 +104,38 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
       console.log('🔄 Revoking old XMTP installations using static revocation...');
 
       // Step 1: Get the inbox ID for this address
-      // const inboxId = await Client.getInboxIdForAddress(address as string, { env: "dev" });
-      // console.log(`Found inbox ID: ${inboxId}`);
+      const inboxId = await Client.getInboxIdForAddress(address as string, { env: "dev" });
+      console.log(`Found inbox ID: ${inboxId}`);
 
       // Step 2: Get the inbox states to see all installations
-      // const inboxStates = await Client.inboxStateFromInboxIds([inboxId], "dev");
-      // console.log(`Found ${inboxStates[0].installations.length} installations`);
+      const inboxStates = await Client.inboxStateFromInboxIds([inboxId], "dev");
+      console.log(`Found ${inboxStates[0].installations.length} installations`);
 
       // Step 3: Get installation bytes to revoke (keep only the most recent 2-3)
-      // const installations = inboxStates[0].installations;
-      // if (installations.length > 3) {
-      //   // Revoke all but the most recent 2 installations
-      //   const toRevokeInstallations = installations.slice(0, -2);
-      //   const toRevokeInstallationBytes = toRevokeInstallations.map((i) => i.bytes);
+      const installations = inboxStates[0].installations;
+      if (installations.length > 3) {
+        // Revoke all but the most recent 2 installations
+        const toRevokeInstallations = installations.slice(0, -2);
+        const toRevokeInstallationBytes = toRevokeInstallations.map((i) => i.bytes);
 
-      //   console.log(`Revoking ${toRevokeInstallations.length} old installations...`);
+        console.log(`Revoking ${toRevokeInstallations.length} old installations...`);
 
-      //   // Step 4: Use static revocation (doesn't require being logged in)
-      //   await Client.revokeInstallations(
-      //     signer,
-      //     inboxId,
-      //     toRevokeInstallationBytes,
-      //     "dev",
-      //     { enableLogging: true }
-      //   );
+        // Step 4: Use static revocation (doesn't require being logged in)
+        await Client.revokeInstallations(
+          signer,
+          inboxId,
+          toRevokeInstallationBytes,
+          "dev",
+          { enableLogging: true }
+        );
 
-      //   console.log('✅ Installation cleanup completed');
-      // } else {
-      //   console.log('No installations need to be revoked');
-      // }
+        console.log('✅ Installation cleanup completed');
+      } else {
+        console.log('No installations need to be revoked');
+      }
 
-      // Now try to connect again
-      await connectXmtp();
+      // Now try to connect again using core logic
+      await connectXmtpCore();
 
     } catch (err) {
       console.error("Failed to revoke installations:", err);
@@ -133,7 +143,7 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [address, signer, connectXmtp]);
+  }, [address, signer, connectXmtpCore]);
 
   // Reset XMTP completely
   const resetXmtp = useCallback(() => {
