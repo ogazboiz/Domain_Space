@@ -67,32 +67,6 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [address, signer]);
 
-  // Connect to XMTP with auto-revoke on installation limit
-  const connectXmtp = useCallback(async () => {
-    if (!address) return;
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      await connectXmtpCore();
-    } catch (err) {
-      console.error("Failed to connect to XMTP:", err);
-      const errorMessage = err instanceof Error ? err.message : "Failed to connect to XMTP";
-
-      // Check if it's the installation limit error and auto-revoke
-      if (errorMessage.includes('10/10 installations')) {
-        console.log('🔄 Installation limit reached, attempting auto-revoke...');
-        setError('Installation limit reached. Cleaning up old installations...');
-        // Auto-revoke installations and retry
-        await revokeInstallations();
-      } else {
-        setError(errorMessage);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [address, connectXmtpCore, revokeInstallations]);
-
   // Function to revoke old installations using static revocation
   const revokeInstallations = useCallback(async () => {
     if (!address) return;
@@ -152,6 +126,32 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(false);
     setError(null);
   }, []);
+
+  // Connect to XMTP with context refresh on installation limit
+  const connectXmtp = useCallback(async () => {
+    if (!address) return;
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await connectXmtpCore();
+    } catch (err) {
+      console.error("Failed to connect to XMTP:", err);
+      const errorMessage = err instanceof Error ? err.message : "Failed to connect to XMTP";
+
+      // Check if it's the installation limit error and refresh context
+      if (errorMessage.includes('10/10 installations')) {
+        console.log('🔄 Installation limit reached, refreshing context...');
+        setError('Installation limit reached. Please try connecting again.');
+        // Reset context completely
+        resetXmtp();
+      } else {
+        setError(errorMessage);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [address, connectXmtpCore, resetXmtp]);
 
   // Auto-disconnect when wallet disconnects
   useEffect(() => {

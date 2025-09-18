@@ -744,45 +744,15 @@ export default function DomainMarketplace() {
     // Detect actual address change (not just undefined to address or vice versa)
     if (prevAddress && currentAddress && prevAddress !== currentAddress) {
       console.log('🔄 Address switched from', prevAddress, 'to', currentAddress);
+      console.log('🔄 Refreshing page due to address switch...');
 
-      if (activeTab === "myspace" || activeTab === "chat") {
-        console.log('🔄 Reloading data for myspace/chat tabs due to address switch');
-
-        // Reset myspace tab states
-        if (activeTab === "myspace") {
-          setMyspaceTab("owned");
-          setSelectedCategory("all");
-        }
-
-        // Reset chat states and force XMTP reconnection
-        if (activeTab === "chat") {
-          console.log('🔄 Resetting XMTP for address switch:', currentAddress);
-
-          // Reset XMTP context completely
-          resetXmtp();
-
-          // Reset chat UI states
-          setChatSearchQuery("");
-          setChatDomainSearchQuery("");
-          setShowChatDomainSearch(false);
-
-          // Trigger reconnection after a brief delay to ensure clean state
-          setTimeout(() => {
-            console.log('🔄 Reconnecting XMTP for new address:', currentAddress);
-            connectXmtp();
-          }, 200);
-        }
-
-        // Close any open modals related to these tabs
-        setShowMessaging(false);
-        setShowCheckingDM(false);
-        setSelectedUserAddress("");
-      }
+      // Reload the entire page to ensure clean state
+      window.location.reload();
     }
 
     // Update the ref with current address
     prevAddressRef.current = currentAddress;
-  }, [address, activeTab, resetXmtp, connectXmtp]);
+  }, [address]);
 
   // Handle wallet disconnect (when address becomes undefined)
   useAccountEffect({
