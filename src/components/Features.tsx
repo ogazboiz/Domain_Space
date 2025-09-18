@@ -84,7 +84,7 @@ export default function Features() {
               1. Connect your wallet
             </h3>
             <p className="text-gray-300 leading-relaxed">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cursus imperdiet sed id elementum.
+              Securely connect your Web3 wallet to start buying, selling, and managing your domain portfolio. Supports all major wallets.
             </p>
           </div>
           
@@ -119,7 +119,7 @@ export default function Features() {
               2. Browse/Search Domains
             </h3>
             <p className="text-gray-300 leading-relaxed">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cursus imperdiet sed id elementum.
+              Explore thousands of premium domains across multiple TLDs. Use advanced filters to find the perfect domain for your project.
             </p>
           </div>
           
@@ -154,7 +154,7 @@ export default function Features() {
               3. Buy/Make Offer
             </h3>
             <p className="text-gray-300 leading-relaxed">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cursus imperdiet sed id elementum.
+              Purchase domains instantly or submit offers to owners. Transparent pricing with secure blockchain transactions.
             </p>
           </div>
           
@@ -189,7 +189,7 @@ export default function Features() {
               4. Chat
             </h3>
             <p className="text-gray-300 leading-relaxed">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cursus imperdiet sed id elementum.
+              Connect directly with domain owners through integrated messaging. Negotiate deals and build relationships in the Web3 space.
             </p>
           </div>
         </div>

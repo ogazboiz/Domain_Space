@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useNames, useOwnedNames, useSelectedNames, useName, useNameStats, useOffers } from "@/data/use-doma";
 // import { formatDistanceToNow } from "date-fns";
 // import { formatUnits } from "viem";
 import { Name } from "@/types/doma";
-import { useAccount } from "wagmi";
+import { useAccount, useAccountEffect } from "wagmi";
 // import { useHelper } from "@/hooks/use-helper";
 import { useUsername } from "@/contexts/UsernameContext";
 import DomainCard from "./DomainCard";
@@ -31,8 +32,12 @@ const TLD_COLORS: Record<string, string> = {
 // Domain Card Component - Now imported from separate file
 
 // Domain Grid Skeleton Component
-const DomainGridSkeleton = ({ count = 6 }) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 justify-items-center">
+const DomainGridSkeleton = ({ count = 6, isFullscreen = false }) => (
+  <div className={`grid justify-items-center ${
+    isFullscreen
+      ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3'
+      : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
+  }`}>
     {[...Array(count)].map((_, i) => (
       <div key={i} className="bg-gray-800 rounded-lg p-6 border border-white/20 animate-pulse w-full max-w-sm" style={{ height: '189px' }}>
         <div className="flex items-center space-x-4">
@@ -236,34 +241,45 @@ const DomainFilters = ({ statusFilter, setStatusFilter, priceFilter, setPriceFil
       <select
         value={statusFilter}
         onChange={(e) => setStatusFilter(e.target.value)}
-        className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-400"
+        className="bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-400 hover:border-gray-500 transition-colors"
+        style={{
+          backgroundColor: '#1F2937',
+          color: '#FFFFFF'
+        }}
       >
-        <option value="all">All</option>
-        <option value="listed">Listed</option>
-        <option value="unlisted">Unlisted</option>
+        <option value="all" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>All</option>
+        <option value="listed" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>Listed</option>
+        <option value="unlisted" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>Unlisted</option>
       </select>
-      <select 
+      <select
         value={priceFilter}
         onChange={(e) => setPriceFilter(e.target.value)}
-        className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-400"
+        className="bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-400 hover:border-gray-500 transition-colors"
+        style={{
+          backgroundColor: '#1F2937',
+          color: '#FFFFFF'
+        }}
       >
-        <option value="all">All</option>
-        <option value="price-low">Price: Low to High</option>
-        <option value="price-high">Price: High to Low</option>
+        <option value="all" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>All</option>
+        <option value="price-low" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>Price: Low to High</option>
+        <option value="price-high" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>Price: High to Low</option>
       </select>
-      <select 
+      <select
         value={tldFilter}
         onChange={(e) => setTldFilter(e.target.value)}
-        className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-400"
+        className="bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-400 hover:border-gray-500 transition-colors"
+        style={{
+          backgroundColor: '#1F2937',
+          color: '#FFFFFF'
+        }}
       >
-        <option value="all">All TLDs</option>
-        <option value="com">.com</option>
-        <option value="ai">.ai</option>
-        <option value="io">.io</option>
-        <option value="eth">.eth</option>
-        <option value="ape">.ape</option>
-        <option value="shib">.shib</option>
-        <option value="football">.football</option>
+        <option value="all" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>All TLDs</option>
+        <option value="com" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>.com</option>
+        <option value="ai" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>.ai</option>
+        <option value="io" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>.io</option>
+        <option value="ape" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>.ape</option>
+        <option value="shib" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>.shib</option>
+        <option value="football" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>.football</option>
       </select>
     </div>
   </div>
@@ -413,7 +429,8 @@ const DomainGrid = ({
   onCancelListing,
   userAddress,
   onDomainClick,
-  forceOwned = false
+  forceOwned = false,
+  isFullscreen = false
 }: {
   domains: Name[];
   formatPrice: (price: string, decimals: number) => string;
@@ -427,8 +444,13 @@ const DomainGrid = ({
   userAddress?: string;
   onDomainClick?: (domain: Name) => void;
   forceOwned?: boolean;
+  isFullscreen?: boolean;
 }) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 justify-items-center">
+  <div className={`grid justify-items-center ${
+    isFullscreen
+      ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3'
+      : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
+  }`}>
     {domains.map((domain) => (
       <DomainCard
         key={domain.name}
@@ -471,6 +493,9 @@ export default function DomainMarketplace() {
   const [selectedDomainFromOwned, setSelectedDomainFromOwned] = useState(false);
   const [offersActivityTab, setOffersActivityTab] = useState<'offers' | 'activity'>('offers');
 
+  // Fullscreen state
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
   const [showCheckingDM, setShowCheckingDM] = useState(false);
   const [selectedUserAddress, setSelectedUserAddress] = useState<string>("");
 
@@ -483,7 +508,7 @@ export default function DomainMarketplace() {
   const chatSearchRef = useRef<HTMLDivElement>(null);
 
   const { address } = useAccount();
-  // const { formatLargeNumber } = useHelper();
+  // Portfolio value formatting handled inline
   const { profile } = useUsername();
 
   // Transaction success handler
@@ -520,7 +545,7 @@ export default function DomainMarketplace() {
     statusFilter === "all" ? 10 : 20, // take - split when showing all
     true, // listed = true
     searchQuery, // name
-    [] // tlds
+    tldFilter === "all" ? [] : [tldFilter] // tlds
   );
 
   const {
@@ -533,7 +558,7 @@ export default function DomainMarketplace() {
     statusFilter === "all" ? 10 : 20, // take - split when showing all
     false, // listed = false
     searchQuery, // name
-    [] // tlds
+    tldFilter === "all" ? [] : [tldFilter] // tlds
   );
 
   // Combine or select the appropriate data based on filter
@@ -706,6 +731,48 @@ export default function DomainMarketplace() {
       return currentValue > highestValue ? current : highest;
     });
   }, [offers]);
+
+  // Handle wallet account changes for myspace and chat tabs
+  useAccountEffect({
+    onConnect(data) {
+      if (activeTab === "myspace" || activeTab === "chat") {
+        console.log('🔄 Wallet connected, reloading data for myspace/chat tabs:', data.address);
+
+        // Reset myspace tab states
+        if (activeTab === "myspace") {
+          setMyspaceTab("owned");
+          setSelectedCategory("all");
+        }
+
+        // Reset chat states
+        if (activeTab === "chat") {
+          setChatSearchQuery("");
+          setChatDomainSearchQuery("");
+          setShowChatDomainSearch(false);
+        }
+
+        // Close any open modals related to these tabs
+        setShowMessaging(false);
+        setShowCheckingDM(false);
+        setSelectedUserAddress("");
+      }
+    },
+    onDisconnect() {
+      if (activeTab === "myspace" || activeTab === "chat") {
+        console.log('🔄 Wallet disconnected, clearing myspace/chat data');
+
+        // Reset all states when wallet disconnects
+        setMyspaceTab("owned");
+        setSelectedCategory("all");
+        setChatSearchQuery("");
+        setChatDomainSearchQuery("");
+        setShowChatDomainSearch(false);
+        setShowMessaging(false);
+        setShowCheckingDM(false);
+        setSelectedUserAddress("");
+      }
+    }
+  });
 
   // Debug logging
   useEffect(() => {
@@ -912,6 +979,33 @@ export default function DomainMarketplace() {
     }
   }, [activeTab]);
 
+  // Fullscreen functionality
+  const toggleFullscreen = useCallback(() => {
+    setIsFullscreen(!isFullscreen);
+  }, [isFullscreen]);
+
+  // ESC key handler to exit fullscreen
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+
+    if (isFullscreen) {
+      document.addEventListener('keydown', handleKeyDown);
+      // Prevent body scroll when in fullscreen
+      document.body.style.overflow = 'hidden';
+    } else {
+      // Restore body scroll
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isFullscreen]);
 
   // Tab definitions
   const tabs = [
@@ -922,7 +1016,7 @@ export default function DomainMarketplace() {
   ];
 
   // Render functions for different tabs
-  const renderTabContent = () => {
+  const renderTabContent = (isFullscreenMode = false) => {
     switch (activeTab) {
       case "details":
         if (!selectedDomain) {
@@ -1681,7 +1775,7 @@ export default function DomainMarketplace() {
                   <p className="text-gray-500 text-sm mt-2">Try searching for &quot;crypto&quot;, &quot;nft&quot;, or any domain name</p>
                 </div>
               ) : isLoadingBrowse ? (
-                <DomainGridSkeleton count={6} />
+                <DomainGridSkeleton count={6} isFullscreen={isFullscreenMode} />
               ) : browseDomains.length === 0 && searchQuery ? (
                 <NoResults searchQuery={searchQuery} />
               ) : (
@@ -1698,6 +1792,7 @@ export default function DomainMarketplace() {
                     onCancelListing={handleCancelListing}
                     userAddress={address}
                     onDomainClick={handleDomainClick}
+                    isFullscreen={isFullscreenMode}
                   />
                   
                   {hasNextBrowse && (
@@ -1753,10 +1848,10 @@ export default function DomainMarketplace() {
                         <span className="text-2xl">📈</span>
                       </div>
                       <span className="text-2xl font-bold text-green-400">
-                        ${portfolioValue.toLocaleString('en-US', {
-                          minimumFractionDigits: 0,
-                          maximumFractionDigits: 0
-                        })}
+                        ${portfolioValue >= 1000 ?
+                          (portfolioValue / 1000).toFixed(3) + 'K' :
+                          portfolioValue.toFixed(2)
+                        }
                       </span>
                     </div>
                     <h3 className="text-white font-semibold text-lg mb-1">Portfolio Value</h3>
@@ -1832,7 +1927,7 @@ export default function DomainMarketplace() {
 
                     {/* Owned Domains Grid */}
                     {isLoadingOwned ? (
-                      <DomainGridSkeleton count={6} />
+                      <DomainGridSkeleton count={6} isFullscreen={isFullscreenMode} />
                     ) : ownedDomainsCount === 0 ? (
                       <div className="text-center py-16 bg-gray-800/20 rounded-2xl border border-gray-700/50">
                         <div className="text-8xl mb-6">🏠</div>
@@ -1850,7 +1945,7 @@ export default function DomainMarketplace() {
                           <DomainGrid
                             domains={ownedDomainsData?.pages?.flatMap(p => p.items) || []}
                             formatPrice={formatPrice}
-                            getTldColor={getTldColor}
+                                    getTldColor={getTldColor}
                             onMessage={handleMessage}
                             onTransactionSuccess={handleTransactionSuccess}
                             onBuy={handleBuy}
@@ -1860,6 +1955,7 @@ export default function DomainMarketplace() {
                             userAddress={address}
                             onDomainClick={handleOwnedDomainClick}
                             forceOwned={true}
+                            isFullscreen={isFullscreenMode}
                           />
                           {hasNextOwned && (
                             <LoadMoreButton onClick={fetchNextOwnedPage} text="Load More Domains" />
@@ -1886,7 +1982,7 @@ export default function DomainMarketplace() {
 
                     {/* Watched Domains */}
                     {isLoadingWatched ? (
-                      <DomainGridSkeleton count={6} />
+                      <DomainGridSkeleton count={6} isFullscreen={isFullscreenMode} />
                     ) : watchedDomainsCount === 0 ? (
                       <div className="text-center py-16 bg-gray-800/20 rounded-2xl border border-gray-700/50">
                         <div className="text-8xl mb-6">👀</div>
@@ -1904,7 +2000,7 @@ export default function DomainMarketplace() {
                           <DomainGrid
                             domains={watchedDomainsData?.pages?.flatMap(p => p.items) || []}
                             formatPrice={formatPrice}
-                            getTldColor={getTldColor}
+                                    getTldColor={getTldColor}
                             onMessage={handleMessage}
                             onTransactionSuccess={handleTransactionSuccess}
                             onBuy={handleBuy}
@@ -1913,6 +2009,7 @@ export default function DomainMarketplace() {
                             onCancelListing={handleCancelListing}
                             userAddress={address}
                             onDomainClick={handleDomainClick}
+                            isFullscreen={isFullscreenMode}
                           />
                           {hasNextWatched && (
                             <LoadMoreButton onClick={fetchNextWatchedPage} text="Load More Watched Domains" />
@@ -1942,8 +2039,139 @@ export default function DomainMarketplace() {
     }
   };
 
+  // Fullscreen portal content
+  const fullscreenContent = (
+    <div className="fixed inset-0 z-[9999] bg-black flex flex-col overflow-hidden">
+      {/* Fullscreen marketplace content */}
+      <div className="flex flex-col h-full p-4 md:p-6 lg:p-8">
+        {/* Header */}
+        <div className="relative text-left mb-4">
+          {/* Fullscreen Toggle Button */}
+          <button
+            onClick={toggleFullscreen}
+            className="absolute top-0 right-0 flex items-center gap-2 p-2 md:p-3 text-gray-400 hover:text-white transition-colors duration-200 hover:bg-white/10 rounded-lg z-10 bg-black/50"
+            title="Exit Fullscreen (ESC)"
+          >
+            <span className="text-sm font-medium hidden sm:block">Exit Fullscreen</span>
+            <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M15 9V4.5M15 9h4.5M15 9l5.25-5.25M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 15v4.5m0-4.5h4.5m0 0l5.25 5.25" />
+            </svg>
+          </button>
+
+          <h2 className="text-white font-space-mono text-2xl md:text-3xl mb-2" style={{ fontWeight: 700, lineHeight: '100%', letterSpacing: '0px' }}>
+            Domain Marketplace
+          </h2>
+        </div>
+
+        {/* Navigation Tabs and Search */}
+        <div className="mb-4 flex flex-col lg:flex-row items-start lg:items-end justify-between gap-4 flex-shrink-0">
+          <TabNavigation
+            tabs={tabs}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+          />
+
+          {/* Show appropriate search bar based on active tab */}
+          {activeTab === "browse" && (
+            <SearchBar
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+            />
+          )}
+          {activeTab === "chat" && (
+            <ChatDomainSearchBar
+              searchQuery={chatDomainSearchQuery}
+              setSearchQuery={setChatDomainSearchQuery}
+              showResults={showChatDomainSearch}
+              setShowResults={setShowChatDomainSearch}
+              domains={chatSearchDomains}
+              isLoading={isLoadingChatDomains}
+              onFocus={() => setShowChatDomainSearch(true)}
+              searchRef={chatSearchRef}
+            />
+          )}
+        </div>
+
+        {/* Filters Section - Only show for browse tab */}
+        {activeTab === "browse" && (
+          <DomainFilters
+            statusFilter={statusFilter}
+            setStatusFilter={setStatusFilter}
+            priceFilter={priceFilter}
+            setPriceFilter={setPriceFilter}
+            tldFilter={tldFilter}
+            setTldFilter={setTldFilter}
+          />
+        )}
+
+        {/* Content Container - Fixed height with internal scrolling */}
+        <div
+          className="flex flex-col flex-1 min-h-0 bg-gray-900/30 rounded-xl overflow-hidden mt-4"
+          style={{
+            border: '1px solid',
+            borderImage: 'radial-gradient(88.13% 63.48% at 26.09% 25.74%, #FFFFFF 0%, rgba(255, 255, 255, 0.905829) 8.52%, rgba(255, 255, 255, 0.801323) 40.45%, rgba(255, 255, 255, 0.595409) 40.46%, rgba(255, 255, 255, 0.29) 96.15%, rgba(255, 255, 255, 0) 100%, rgba(255, 255, 255, 0) 100%), linear-gradient(180deg, rgba(0, 0, 0, 0.2) 18.72%, rgba(255, 30, 0, 0.2) 43.64%, rgba(255, 255, 255, 0.2) 67.21%)',
+            borderImageSlice: 1
+          }}
+        >
+          {/* Dynamic Tab Content - Scrollable Area */}
+          <div className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-purple-500 scrollbar-track-gray-800 p-4">
+            {renderTabContent(true)}
+          </div>
+        </div>
+      </div>
+
+      {/* Modals inside fullscreen */}
+      {/* Domain Action Modal */}
+      {selectedDomain && (selectedDomainData || selectedDomain) && (
+        <DomainActionModal
+          domain={selectedDomainData || selectedDomain}
+          isOpen={showActionModal}
+          onClose={() => {
+            setShowActionModal(false);
+            setActionType(null);
+          }}
+          onTransactionSuccess={(type, domain, result) => {
+            handleTransactionSuccess(type, domain, result);
+            // Refetch domain data after successful transaction
+            refetchDomainData();
+          }}
+          actionType={actionType}
+          formatPrice={formatPrice}
+          getTldColor={getTldColor}
+          userAddress={address}
+        />
+      )}
+
+      {/* List Domain Modal */}
+      <ListDomainModal
+        domain={domainToList}
+        isOpen={showListModal}
+        onClose={() => {
+          setShowListModal(false);
+          setDomainToList(null);
+        }}
+        onSuccess={handleListingSuccess}
+      />
+
+      {/* Cancel Listing Modal */}
+      <CancelListingModal
+        domain={domainToList}
+        isOpen={showCancelListingModal}
+        onClose={() => {
+          setShowCancelListingModal(false);
+          setDomainToList(null);
+        }}
+        onSuccess={handleCancelListingSuccess}
+      />
+    </div>
+  );
+
   return (
-    <section id="marketplace-section" className="relative py-20 px-6 lg:px-12">
+    <>
+      <section
+        id="marketplace-section"
+        className="relative py-20 px-6 lg:px-12"
+      >
       {/* Background */}
       <div className="absolute inset-0 bg-black"></div>
       
@@ -1961,29 +2189,39 @@ export default function DomainMarketplace() {
       {/* Content */}
       <div className="relative z-10 max-w-7xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-16">
-          <h2 
-            className="text-white mb-6 font-space-mono"
+        <div className="relative text-center mb-16">
+          {/* Fullscreen Toggle Button */}
+          <button
+            onClick={toggleFullscreen}
+            className="absolute top-0 right-0 flex items-center gap-2 p-2 md:p-3 text-gray-400 hover:text-white transition-colors duration-200 hover:bg-white/10 rounded-lg z-10"
+            title="Enter Fullscreen"
+          >
+            <span className="text-sm font-medium hidden sm:block">Fullscreen</span>
+            <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+            </svg>
+          </button>
+
+          <h2
+            className="text-white font-space-mono text-4xl mb-6"
             style={{
               fontWeight: 700,
-              fontSize: '38px',
               lineHeight: '100%',
               letterSpacing: '0px'
             }}
           >
-            Simple Steps, Great Features
+            Domain Marketplace
           </h2>
-          <p 
+          <p
             className="text-white max-w-2xl mx-auto font-space-mono"
             style={{
               fontWeight: 400,
-              
               fontSize: '20px',
               lineHeight: '100%',
               letterSpacing: '0px'
             }}
           >
-            This can only be just the beginning of what is possible
+            Discover, buy, and trade premium domains in the decentralized marketplace
           </p>
         </div>
 
@@ -2031,7 +2269,7 @@ export default function DomainMarketplace() {
         )}
 
         {/* Content Container */}
-        <div 
+        <div
           className="flex flex-col"
           style={{
             width: '100%',
@@ -2054,10 +2292,7 @@ export default function DomainMarketplace() {
         >
           {/* Dynamic Tab Content - Scrollable Area */}
           <div className="flex-1 overflow-hidden">
-            <div 
-              className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-purple-500 scrollbar-track-gray-800 pr-2"
-              style={{ maxHeight: 'calc(100% - 0px)' }}
-            >
+            <div className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-purple-500 scrollbar-track-gray-800 pr-2">
               {renderTabContent()}
             </div>
           </div>
@@ -2093,48 +2328,61 @@ export default function DomainMarketplace() {
         onDMCreated={handleDMCreated}
       />
 
-      {/* Domain Action Modal */}
-      {selectedDomain && (selectedDomainData || selectedDomain) && (
-        <DomainActionModal
-          domain={selectedDomainData || selectedDomain}
-          isOpen={showActionModal}
-          onClose={() => {
-            setShowActionModal(false);
-            setActionType(null);
-          }}
-          onTransactionSuccess={(type, domain, result) => {
-            handleTransactionSuccess(type, domain, result);
-            // Refetch domain data after successful transaction
-            refetchDomainData();
-          }}
-          formatPrice={formatPrice}
-          getTldColor={getTldColor}
-          userAddress={address}
-        />
+      {/* Modals - Only show when not in fullscreen mode */}
+      {!isFullscreen && (
+        <>
+          {/* Domain Action Modal */}
+          {selectedDomain && (selectedDomainData || selectedDomain) && (
+            <DomainActionModal
+              domain={selectedDomainData || selectedDomain}
+              isOpen={showActionModal}
+              onClose={() => {
+                setShowActionModal(false);
+                setActionType(null);
+              }}
+              onTransactionSuccess={(type, domain, result) => {
+                handleTransactionSuccess(type, domain, result);
+                // Refetch domain data after successful transaction
+                refetchDomainData();
+              }}
+              actionType={actionType}
+              formatPrice={formatPrice}
+              getTldColor={getTldColor}
+              userAddress={address}
+            />
+          )}
+
+          {/* List Domain Modal */}
+          <ListDomainModal
+            domain={domainToList}
+            isOpen={showListModal}
+            onClose={() => {
+              setShowListModal(false);
+              setDomainToList(null);
+            }}
+            onSuccess={handleListingSuccess}
+          />
+
+          {/* Cancel Listing Modal */}
+          <CancelListingModal
+            domain={domainToList}
+            isOpen={showCancelListingModal}
+            onClose={() => {
+              setShowCancelListingModal(false);
+              setDomainToList(null);
+            }}
+            onSuccess={handleCancelListingSuccess}
+          />
+        </>
       )}
 
-      {/* List Domain Modal */}
-      <ListDomainModal
-        domain={domainToList}
-        isOpen={showListModal}
-        onClose={() => {
-          setShowListModal(false);
-          setDomainToList(null);
-        }}
-        onSuccess={handleListingSuccess}
-      />
-
-      {/* Cancel Listing Modal */}
-      <CancelListingModal
-        domain={domainToList}
-        isOpen={showCancelListingModal}
-        onClose={() => {
-          setShowCancelListingModal(false);
-          setDomainToList(null);
-        }}
-        onSuccess={handleCancelListingSuccess}
-      />
-
     </section>
+
+    {/* Fullscreen Portal */}
+    {isFullscreen && typeof window !== 'undefined' &&
+      // @ts-ignore
+      createPortal(fullscreenContent, document.body)
+    }
+    </>
   );
 } 
