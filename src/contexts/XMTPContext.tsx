@@ -12,6 +12,8 @@ type XMTPContextType = {
   error: string | null;
   isConnected: boolean;
   revokeInstallations: () => Promise<void>;
+  connectXmtp: () => Promise<void>;
+  resetXmtp: () => void;
 };
 
 const XMTPContext = createContext<XMTPContextType | undefined>(undefined);
@@ -133,6 +135,14 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [address, signer, connectXmtp]);
 
+  // Reset XMTP completely
+  const resetXmtp = useCallback(() => {
+    console.log('🔄 Resetting XMTP context completely');
+    setClient(null);
+    setIsLoading(false);
+    setError(null);
+  }, []);
+
   // Auto-disconnect when wallet disconnects
   useEffect(() => {
     if (!address) {
@@ -160,6 +170,8 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
         error,
         isConnected,
         revokeInstallations,
+        connectXmtp,
+        resetXmtp,
       }}
     >
       {children}

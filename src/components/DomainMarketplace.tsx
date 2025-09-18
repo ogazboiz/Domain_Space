@@ -9,6 +9,7 @@ import { Name } from "@/types/doma";
 import { useAccount, useAccountEffect } from "wagmi";
 // import { useHelper } from "@/hooks/use-helper";
 import { useUsername } from "@/contexts/UsernameContext";
+import { useXMTPContext } from "@/contexts/XMTPContext";
 import DomainCard from "./DomainCard";
 import MessagingModal from "./MessagingModal";
 import DomainDetailPage from "./DomainDetailPage";
@@ -489,7 +490,6 @@ export default function DomainMarketplace() {
   const [showMessaging, setShowMessaging] = useState(false);
   const [showDetailPage, setShowDetailPage] = useState(false);
   const [showActionModal, setShowActionModal] = useState(false);
-  const [actionType, setActionType] = useState<'buy' | 'offer' | null>(null);
   const [selectedDomainFromOwned, setSelectedDomainFromOwned] = useState(false);
   const [offersActivityTab, setOffersActivityTab] = useState<'offers' | 'activity'>('offers');
 
@@ -510,6 +510,7 @@ export default function DomainMarketplace() {
   const { address } = useAccount();
   // Portfolio value formatting handled inline
   const { profile } = useUsername();
+  const { client, setClient, connectXmtp, resetXmtp } = useXMTPContext();
 
   // Transaction success handler
   const handleTransactionSuccess = useCallback((type: 'buy' | 'offer', domain: Name, result: unknown) => {
@@ -732,11 +733,20 @@ export default function DomainMarketplace() {
     });
   }, [offers]);
 
-  // Handle wallet account changes for myspace and chat tabs
-  useAccountEffect({
-    onConnect(data) {
+  // Keep track of previous address to detect actual changes
+  const prevAddressRef = useRef<string | undefined>(address);
+
+  // Handle wallet address changes (switches between accounts)
+  useEffect(() => {
+    const currentAddress = address;
+    const prevAddress = prevAddressRef.current;
+
+    // Detect actual address change (not just undefined to address or vice versa)
+    if (prevAddress && currentAddress && prevAddress !== currentAddress) {
+      console.log('🔄 Address switched from', prevAddress, 'to', currentAddress);
+
       if (activeTab === "myspace" || activeTab === "chat") {
-        console.log('🔄 Wallet connected, reloading data for myspace/chat tabs:', data.address);
+        console.log('🔄 Reloading data for myspace/chat tabs due to address switch');
 
         // Reset myspace tab states
         if (activeTab === "myspace") {
@@ -744,11 +754,23 @@ export default function DomainMarketplace() {
           setSelectedCategory("all");
         }
 
-        // Reset chat states
+        // Reset chat states and force XMTP reconnection
         if (activeTab === "chat") {
+          console.log('🔄 Resetting XMTP for address switch:', currentAddress);
+
+          // Reset XMTP context completely
+          resetXmtp();
+
+          // Reset chat UI states
           setChatSearchQuery("");
           setChatDomainSearchQuery("");
           setShowChatDomainSearch(false);
+
+          // Trigger reconnection after a brief delay to ensure clean state
+          setTimeout(() => {
+            console.log('🔄 Reconnecting XMTP for new address:', currentAddress);
+            connectXmtp();
+          }, 200);
         }
 
         // Close any open modals related to these tabs
@@ -756,21 +778,29 @@ export default function DomainMarketplace() {
         setShowCheckingDM(false);
         setSelectedUserAddress("");
       }
-    },
-    onDisconnect() {
-      if (activeTab === "myspace" || activeTab === "chat") {
-        console.log('🔄 Wallet disconnected, clearing myspace/chat data');
+    }
 
-        // Reset all states when wallet disconnects
-        setMyspaceTab("owned");
-        setSelectedCategory("all");
-        setChatSearchQuery("");
-        setChatDomainSearchQuery("");
-        setShowChatDomainSearch(false);
-        setShowMessaging(false);
-        setShowCheckingDM(false);
-        setSelectedUserAddress("");
-      }
+    // Update the ref with current address
+    prevAddressRef.current = currentAddress;
+  }, [address, activeTab, resetXmtp, connectXmtp]);
+
+  // Handle wallet disconnect (when address becomes undefined)
+  useAccountEffect({
+    onDisconnect() {
+      console.log('🔄 Wallet disconnected, clearing all data');
+
+      // Reset XMTP completely
+      resetXmtp();
+
+      // Reset all states when wallet disconnects
+      setMyspaceTab("owned");
+      setSelectedCategory("all");
+      setChatSearchQuery("");
+      setChatDomainSearchQuery("");
+      setShowChatDomainSearch(false);
+      setShowMessaging(false);
+      setShowCheckingDM(false);
+      setSelectedUserAddress("");
     }
   });
 
@@ -881,13 +911,11 @@ export default function DomainMarketplace() {
   const handleBuy = useCallback((domain: Name) => {
     setSelectedDomain(domain);
     setShowActionModal(true);
-    setActionType('buy');
   }, []);
 
   const handleOffer = useCallback((domain: Name) => {
     setSelectedDomain(domain);
     setShowActionModal(true);
-    setActionType('offer');
   }, []);
 
   const handleList = useCallback((domain: Name) => {
@@ -2128,14 +2156,12 @@ export default function DomainMarketplace() {
           isOpen={showActionModal}
           onClose={() => {
             setShowActionModal(false);
-            setActionType(null);
           }}
           onTransactionSuccess={(type, domain, result) => {
             handleTransactionSuccess(type, domain, result);
             // Refetch domain data after successful transaction
             refetchDomainData();
           }}
-          actionType={actionType}
           formatPrice={formatPrice}
           getTldColor={getTldColor}
           userAddress={address}
@@ -2338,14 +2364,12 @@ export default function DomainMarketplace() {
               isOpen={showActionModal}
               onClose={() => {
                 setShowActionModal(false);
-                setActionType(null);
               }}
               onTransactionSuccess={(type, domain, result) => {
                 handleTransactionSuccess(type, domain, result);
                 // Refetch domain data after successful transaction
                 refetchDomainData();
               }}
-              actionType={actionType}
               formatPrice={formatPrice}
               getTldColor={getTldColor}
               userAddress={address}
@@ -2380,7 +2404,6 @@ export default function DomainMarketplace() {
 
     {/* Fullscreen Portal */}
     {isFullscreen && typeof window !== 'undefined' &&
-      // @ts-ignore
       createPortal(fullscreenContent, document.body)
     }
     </>
