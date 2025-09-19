@@ -112,9 +112,11 @@ const TabNavigation = ({ tabs, activeTab, setActiveTab }: {
           <span className={`font-medium ${isActive ? 'text-white' : 'text-gray-400'}`}>
             {tab.label}
           </span>
-          <span className="bg-purple-500 text-white text-xs px-2 py-1 rounded-full">
-            {tab.count}
-          </span>
+          {tab.count && (
+            <span className="bg-purple-500 text-white text-xs px-2 py-1 rounded-full">
+              {tab.count}
+            </span>
+          )}
         </button>
       );
     })}
@@ -1047,8 +1049,8 @@ export default function DomainMarketplace() {
   const tabs = [
     ...(selectedDomain ? [{ id: "details", label: "Domain Details", count: "1" }] : []),
     { id: "browse", label: "Browse Domains", count: totalBrowseCount > 0 ? totalBrowseCount.toString() : "..." },
-    { id: "myspace", label: "My Space", count: "12" },
-    { id: "chat", label: "Chat", count: "5" }
+    { id: "myspace", label: "My Space", count: (ownedDomainsCount + watchedDomainsCount).toString() },
+    { id: "chat", label: "Chat", count: "" }
   ];
 
   // Render functions for different tabs
