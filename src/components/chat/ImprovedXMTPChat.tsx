@@ -31,7 +31,7 @@ interface EnhancedConversation {
 export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "", setSearchQuery, onManualConversationSelect }: ImprovedXMTPChatProps) {
   const { client, isLoading, error, isConnected, revokeInstallations } = useXMTPContext()
   const { address } = useAccount()
-  
+
   // State
   const [conversations, setConversations] = useState<EnhancedConversation[]>([])
   const [activeConversation, setActiveConversation] = useState<Dm | null>(null)
@@ -50,8 +50,98 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
   const [isManuallySelecting, setIsManuallySelecting] = useState(false)
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false)
-  
-  // Debug: Track component renders
+
+  // Persistence keys for chat state
+  const CONVERSATIONS_KEY = `xmtp_conversations_${address}`;
+  const ACTIVE_CONVERSATION_KEY = `xmtp_active_conversation_${address}`;
+
+  // Utility function to safely get timestamp from date
+  const safeGetTime = useCallback((date: Date | string | number | undefined | null): number => {
+    if (!date) return 0;
+    if (date instanceof Date) return date.getTime();
+    if (typeof date === 'number') return date;
+    if (typeof date === 'string') {
+      const parsed = new Date(date);
+      return isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+    }
+    return 0;
+  }, []);
+
+  // Save conversations to sessionStorage
+  const saveConversations = useCallback((convs: EnhancedConversation[]) => {
+    if (address && typeof window !== 'undefined') {
+      try {
+        // Save only the metadata, not the full XMTP objects
+        const conversationsData = convs.map(conv => ({
+          id: conv.id,
+          peerAddress: conv.peerAddress,
+          metadata: conv.metadata
+        }));
+        sessionStorage.setItem(CONVERSATIONS_KEY, JSON.stringify({
+          conversations: conversationsData,
+          timestamp: Date.now()
+        }));
+      } catch (error) {
+        console.warn('Failed to save conversations:', error);
+      }
+    }
+  }, [address, CONVERSATIONS_KEY]);
+
+  // Load conversations from sessionStorage
+  const loadSavedConversations = useCallback((): EnhancedConversation[] => {
+    if (address && typeof window !== 'undefined') {
+      try {
+        const saved = sessionStorage.getItem(CONVERSATIONS_KEY);
+        if (saved) {
+          const data = JSON.parse(saved);
+          // Check if data is recent (within 30 minutes)
+          const thirtyMinutes = 30 * 60 * 1000;
+          if (Date.now() - data.timestamp < thirtyMinutes) {
+            console.log('📂 Loaded', data.conversations.length, 'conversations from cache');
+            return data.conversations;
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to load saved conversations:', error);
+      }
+    }
+    return [];
+  }, [address, CONVERSATIONS_KEY]);
+
+  // Save active conversation ID
+  const saveActiveConversation = useCallback((convId: string, peerAddr: string) => {
+    if (address && typeof window !== 'undefined') {
+      try {
+        sessionStorage.setItem(ACTIVE_CONVERSATION_KEY, JSON.stringify({
+          conversationId: convId,
+          peerAddress: peerAddr,
+          timestamp: Date.now()
+        }));
+      } catch (error) {
+        console.warn('Failed to save active conversation:', error);
+      }
+    }
+  }, [address, ACTIVE_CONVERSATION_KEY]);
+
+  // Load active conversation
+  const loadActiveConversation = useCallback((): { conversationId: string; peerAddress: string } | null => {
+    if (address && typeof window !== 'undefined') {
+      try {
+        const saved = sessionStorage.getItem(ACTIVE_CONVERSATION_KEY);
+        if (saved) {
+          const data = JSON.parse(saved);
+          // Check if data is recent (within 30 minutes)
+          const thirtyMinutes = 30 * 60 * 1000;
+          if (Date.now() - data.timestamp < thirtyMinutes) {
+            return { conversationId: data.conversationId, peerAddress: data.peerAddress };
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to load active conversation:', error);
+      }
+    }
+    return null;
+  }, [address, ACTIVE_CONVERSATION_KEY]);
 
   // Enhanced conversation filtering with better search logic
   const filteredConversations = useMemo(() => {
@@ -215,11 +305,40 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     return uniqueConversations;
   }, []);
 
-  // Load conversations with metadata (like domainline)
-  const loadConversations = useCallback(async () => {
+  // Load conversations with metadata and persistence
+  const loadConversations = useCallback(async (forceRefresh = false) => {
     if (!client || isLoadingConversations) {
       return;
     }
+
+    // Try to load from cache first if not forcing refresh
+    if (!forceRefresh) {
+      const cachedConversations = loadSavedConversations();
+      if (cachedConversations.length > 0) {
+        console.log('⚡ Using cached conversations');
+        setConversations(cachedConversations);
+        setIsLoadingConversations(false);
+        setLoading(false);
+
+        // Load XMTP objects for cached conversations in background
+        setTimeout(async () => {
+          try {
+            const allConversations = await client.conversations.list();
+            const updatedConversations = cachedConversations.map(cached => {
+              const xmtpObj = allConversations.find(conv => conv.id === cached.id);
+              return xmtpObj ? { ...cached, xmtpObject: xmtpObj as Dm } : cached;
+            }).filter(conv => conv.xmtpObject); // Only keep conversations with valid XMTP objects
+
+            setConversations(updatedConversations);
+            saveConversations(updatedConversations);
+          } catch (error) {
+            console.warn('Failed to load XMTP objects for cached conversations:', error);
+          }
+        }, 100);
+        return;
+      }
+    }
+
     setIsLoadingConversations(true);
     setLoading(true);
     try {
@@ -229,11 +348,8 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
       // Add delay to ensure sync completes
       await new Promise(resolve => setTimeout(resolve, 200));
 
-      // Load conversations with BOTH allowed AND unknown consent states
-      // This ensures we see old conversations that haven't been explicitly allowed yet
-      const allConversations = await client.conversations.listDms({
-        consentStates: [ConsentState.Allowed, ConsentState.Unknown] // This is the key fix!
-      });
+      // Use simple conversation loading like DomainLine (load ALL conversations)
+      const allConversations = await client.conversations.list();
 
       // Filter for DM conversations only, excluding group chats
       const dms = allConversations.filter((conv) =>
@@ -267,10 +383,10 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
         })
       )).filter(Boolean) as EnhancedConversation[]; // Remove null entries
 
-      // Sort by last message time
+      // Sort by last message time with safe date handling
       enhancedConversations.sort((a, b) => {
-        const timeA = a.metadata.lastMessageTime?.getTime() || 0;
-        const timeB = b.metadata.lastMessageTime?.getTime() || 0;
+        const timeA = safeGetTime(a.metadata.lastMessageTime);
+        const timeB = safeGetTime(b.metadata.lastMessageTime);
         return timeB - timeA;
       });
 
@@ -278,6 +394,9 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
       const uniqueConversations = deduplicateConversations(enhancedConversations);
 
       setConversations(uniqueConversations);
+
+      // Save conversations to cache
+      saveConversations(uniqueConversations);
     } catch (error) {
       console.error("Failed to load conversations:", error);
       toast.error('Failed to load conversations');
@@ -285,7 +404,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
       setLoading(false);
       setIsLoadingConversations(false);
     }
-  }, [client, getPeerAddress, isLoadingConversations, deduplicateConversations]);
+  }, [client, getPeerAddress, isLoadingConversations, deduplicateConversations, loadSavedConversations, saveConversations, safeGetTime]);
 
   // Create conversation (like domainline)
   const createConversation = useCallback(
@@ -546,6 +665,9 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     // Set active conversation first
     setActiveConversation(conversation.xmtpObject);
     setActivePeerAddress(conversation.peerAddress);
+
+    // Save active conversation for persistence
+    saveActiveConversation(conversation.id, conversation.peerAddress);
     
     // Load messages immediately with the specific conversation
     console.log("🔄 Loading messages for conversation:", conversation.id);
@@ -580,17 +702,9 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
         includesInitiated: typeof m.content === 'string' ? m.content.includes('initiatedByInboxId') : false
       })));
 
-      // TEMPORARY: Show ALL messages to debug the filtering
+      // Simple message filtering like DomainLine (just check for string content)
       const textMessages = msgs.filter((msg: DecodedMessage) => {
-        // Much more permissive filter for debugging
-        const isText = typeof msg.content === "string" && msg.content !== "";
-        console.log('🔍 Message filter check:', {
-          content: msg.content,
-          isText,
-          type: typeof msg.content,
-          length: typeof msg.content === 'string' ? msg.content.length : 0
-        });
-        return isText;
+        return typeof msg.content === "string" && msg.content.trim() !== "";
       });
       
 
@@ -638,13 +752,12 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
             await existingConversation.xmtpObject.sync();
             await new Promise(resolve => setTimeout(resolve, 100));
             const msgs = await existingConversation.xmtpObject.messages();
-            
-            // DEBUG: Much more permissive filter
+
+            // Simple message filtering like DomainLine (just check for string content)
             const textMessages = msgs.filter((msg: DecodedMessage) => {
-              const isText = typeof msg.content === "string" && msg.content !== "";
-              return isText;
+              return typeof msg.content === "string" && msg.content.trim() !== "";
             });
-            
+
             setMessages(textMessages);
           } catch (error) {
             console.error("Failed to load messages:", error);
@@ -694,13 +807,12 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
             await conversation.sync();
             await new Promise(resolve => setTimeout(resolve, 100));
             const msgs = await conversation.messages();
-            
-            // DEBUG: Much more permissive filter
+
+            // Simple message filtering like DomainLine (just check for string content)
             const textMessages = msgs.filter((msg: DecodedMessage) => {
-              const isText = typeof msg.content === "string" && msg.content !== "";
-              return isText;
+              return typeof msg.content === "string" && msg.content.trim() !== "";
             });
-            
+
             setMessages(textMessages);
           } catch (error) {
             console.error("Failed to load messages:", error);
@@ -751,13 +863,12 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
               await (conversation as Dm).sync();
               await new Promise(resolve => setTimeout(resolve, 100));
               const msgs = await (conversation as Dm).messages();
-              
-              // DEBUG: Much more permissive filter
+
+              // Simple message filtering like DomainLine (just check for string content)
               const textMessages = msgs.filter((msg: DecodedMessage) => {
-                const isText = typeof msg.content === "string" && msg.content !== "";
-                return isText;
+                return typeof msg.content === "string" && msg.content.trim() !== "";
               });
-              
+
               setMessages(textMessages);
             } catch (error) {
               console.error("Failed to load messages:", error);
@@ -778,11 +889,30 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
   // Load conversations on client connect
   useEffect(() => {
     if (client) {
+      // Set loading state immediately when client becomes available
+      setIsLoadingConversations(true);
       loadConversations();
     } else {
       setConversations([]);
+      setIsLoadingConversations(false);
     }
-  }, [client]);
+  }, [client, loadConversations]);
+
+  // Restore active conversation from persistence when conversations are loaded
+  useEffect(() => {
+    if (conversations.length > 0 && !activeConversation && !isManuallySelecting) {
+      const savedActive = loadActiveConversation();
+      if (savedActive) {
+        console.log('🔄 Restoring active conversation:', savedActive.conversationId);
+        const targetConversation = conversations.find(conv => conv.id === savedActive.conversationId);
+        if (targetConversation && targetConversation.xmtpObject) {
+          setActiveConversation(targetConversation.xmtpObject);
+          setActivePeerAddress(savedActive.peerAddress);
+          console.log('✅ Restored active conversation successfully');
+        }
+      }
+    }
+  }, [conversations, activeConversation, isManuallySelecting, loadActiveConversation]);
 
   // Clear active conversation when defaultPeerAddress becomes empty to prevent invalid state
   useEffect(() => {
@@ -808,7 +938,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
       // Don't clear state yet, wait for client to be ready
       return;
     }
-    
+
     if (address && client) {
       console.log("🔄 Wallet address changed and XMTP client ready, clearing chat state");
       setConversations([]);
@@ -822,7 +952,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
       setIsManuallySelecting(false);
       setIsLoadingConversations(false);
     } else if (!address) {
-      console.log("🔄 Wallet disconnected, clearing chat state");
+      console.log("🔄 Wallet disconnected, clearing chat state and cache");
       setConversations([]);
       setActiveConversation(null);
       setMessages([]);
@@ -833,38 +963,80 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
       setNewConversationAddress('');
       setIsManuallySelecting(false);
       setIsLoadingConversations(false);
+
+      // Clear cached data when wallet disconnects
+      if (typeof window !== 'undefined') {
+        try {
+          Object.keys(sessionStorage).forEach(key => {
+            if (key.startsWith('xmtp_conversations_') || key.startsWith('xmtp_active_conversation_')) {
+              sessionStorage.removeItem(key);
+            }
+          });
+        } catch (error) {
+          console.warn('Failed to clear chat cache:', error);
+        }
+      }
     }
   }, [address, client, isLoading]);
 
   // Note: Message loading is now handled directly in handleSelectConversation
   // to avoid circular dependencies and unnecessary reloads
 
-  // Stream messages for real-time updates
+  // Global DM message streaming (better approach using XMTP docs)
   useEffect(() => {
-    if (!activeConversation) return
+    if (!client) return;
 
-    let streamController: { return?: () => void } | null = null
+    let messageStreamController: { return?: () => void } | null = null;
 
-    const setupMessageStream = async () => {
+    const setupGlobalMessageStream = async () => {
       try {
-        streamController = await activeConversation.stream({
+        console.log('🌐 Setting up global DM message stream...');
+
+        // Stream all DM messages using the official XMTP method
+        messageStreamController = await client.conversations.streamAllDmMessages({
+          retryAttempts: 5,
+          retryDelay: 3000,
           onValue: (message: DecodedMessage) => {
-            // Filter out system messages in streaming too
+            console.log('📨 New DM message received globally:', {
+              id: message.id,
+              content: message.content,
+              sender: message.senderInboxId,
+              conversationId: message.conversationId,
+              timestamp: new Date(Number(message.sentAtNs) / 1_000_000)
+            });
+
+            // Filter for valid text messages
             if (message &&
                 typeof message.content === "string" &&
-                message.content !== "" &&
-                !message.content.startsWith("{")) {
-              setMessages(prev => {
-                const exists = prev.find(m => m.id === message.id);
-                if (exists) return prev;
-                return [...prev, message];
-              });
+                message.content.trim() !== "") {
 
-              // Update conversation list with latest message like frontend
+              // Update messages if this is for the active conversation
+              if (activeConversation && message.conversationId === activeConversation.id) {
+                setMessages(prev => {
+                  const exists = prev.find(m => m.id === message.id);
+                  if (exists) {
+                    console.log('⚠️ Message already exists in active conversation, skipping:', message.id);
+                    return prev;
+                  }
+                  console.log('✅ Adding new message to active conversation:', message.id);
+
+                  // Auto-scroll to bottom when new message arrives
+                  setTimeout(() => {
+                    const messagesContainer = document.querySelector('.overflow-y-auto');
+                    if (messagesContainer) {
+                      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    }
+                  }, 100);
+
+                  return [...prev, message];
+                });
+              }
+
+              // Always update the conversation list metadata
               setConversations(prevConversations => {
-                return prevConversations.map(conv => {
-                  if (conv.id === activeConversation.id) {
-                    return {
+                const updatedConversations = prevConversations.map(conv => {
+                  if (conv.id === message.conversationId) {
+                    const updated = {
                       ...conv,
                       metadata: {
                         ...conv.metadata,
@@ -872,88 +1044,151 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                         lastMessageTime: new Date(Number(message.sentAtNs) / 1_000_000)
                       }
                     };
+                    console.log('📝 Updated conversation metadata globally:', updated.id);
+                    return updated;
                   }
                   return conv;
                 }).sort((a, b) => {
-                  // Re-sort conversations by latest message time
-                  const timeA = a.metadata.lastMessageTime?.getTime() || 0;
-                  const timeB = b.metadata.lastMessageTime?.getTime() || 0;
+                  // Re-sort conversations by latest message time with safe date handling
+                  const timeA = safeGetTime(a.metadata.lastMessageTime);
+                  const timeB = safeGetTime(b.metadata.lastMessageTime);
                   return timeB - timeA;
                 });
+
+                // Save updated conversations to cache
+                saveConversations(updatedConversations);
+                return updatedConversations;
+              });
+            } else {
+              console.log('🚫 Global message filtered out:', {
+                content: message.content,
+                type: typeof message.content
               });
             }
           },
           onError: (error: unknown) => {
-            console.error("Message stream error:", error);
+            console.error("❌ Global message stream error:", error);
+          },
+          onFail: () => {
+            console.log('❌ Global message stream failed after retries');
+          },
+          onRestart: () => {
+            console.log('🔄 Global message stream restarted');
+          },
+          onRetry: (attempt: number, maxAttempts: number) => {
+            console.log(`🔄 Global message stream retry attempt ${attempt} of ${maxAttempts}`);
           },
         });
-      } catch (error) {
-        console.error("Failed to setup message stream:", error);
-      }
-    }
 
-    setupMessageStream()
+        console.log('✅ Global DM message stream setup successful');
+      } catch (error) {
+        console.error("❌ Failed to setup global message stream:", error);
+      }
+    };
+
+    setupGlobalMessageStream();
 
     return () => {
-      if (streamController && typeof streamController.return === "function") {
-        streamController.return();
-        setStreamController(null);
+      console.log('🔇 Cleaning up global message stream');
+      if (messageStreamController && typeof messageStreamController.return === "function") {
+        messageStreamController.return();
       }
-    }
-  }, [activeConversation])
+    };
+  }, [client, activeConversation, saveConversations, safeGetTime])
 
-  // Stream conversations for real-time updates (like domainline)
+  // Stream new conversations for real-time updates (using XMTP docs approach)
   useEffect(() => {
-    if (!client || streamController) return;
+    if (!client) return;
+
+    let conversationStreamController: { return?: () => void } | null = null;
 
     const setupConversationStream = async () => {
       try {
-        const controller = await client.conversations.stream({
+        console.log('🌐 Setting up conversation stream...');
+
+        conversationStreamController = await client.conversations.stream({
+          retryAttempts: 5,
+          retryDelay: 3000,
           onValue: async (conversation) => {
+            console.log('🆕 New conversation detected:', conversation.id);
+
             // Only handle DM conversations, skip groups
             if (!('peerInboxId' in conversation) || typeof conversation.peerInboxId !== 'function') {
+              console.log('🚫 Skipping non-DM conversation');
               return;
             }
 
             // Get peer address for the new DM conversation
             const peerAddress = await getPeerAddress(conversation as Dm);
 
-            // Skip conversations without valid peer addresses in streaming too
-            if (!peerAddress) return;
+            // Skip conversations without valid peer addresses
+            if (!peerAddress) {
+              console.log('🚫 Skipping conversation without valid peer address');
+              return;
+            }
 
             const newConv: EnhancedConversation = {
               id: conversation.id,
               peerAddress,
               metadata: {
-                unreadCount: 1,
+                lastMessage: undefined,
+                lastMessageTime: undefined,
+                unreadCount: 0,
                 isTyping: false,
               },
-              xmtpObject: conversation, // Store the original XMTP object
+              xmtpObject: conversation as Dm,
             };
 
-            // Use deduplication when adding new conversations from stream
+            // Add new conversation to the list
             setConversations(prev => {
-              const combined = [newConv, ...prev];
-              const deduplicated = deduplicateConversations(combined);
-              console.log(`🔄 Stream conversation added: ${combined.length} → ${deduplicated.length} conversations`);
-              return deduplicated;
+              const exists = prev.find(conv => conv.id === conversation.id);
+              if (exists) {
+                console.log('⚠️ Conversation already exists, skipping:', conversation.id);
+                return prev;
+              }
+
+              console.log('✅ Adding new conversation to list:', conversation.id);
+              const updated = [newConv, ...prev].sort((a, b) => {
+                // Safe date handling for conversation sorting
+                const timeA = safeGetTime(a.metadata.lastMessageTime);
+                const timeB = safeGetTime(b.metadata.lastMessageTime);
+                return timeB - timeA;
+              });
+
+              // Save updated conversations to cache
+              saveConversations(updated);
+              return updated;
             });
           },
           onError: (error: unknown) => {
-            console.error("Conversation stream error:", error);
+            console.error("❌ Conversation stream error:", error);
+          },
+          onFail: () => {
+            console.log('❌ Conversation stream failed after retries');
+          },
+          onRestart: () => {
+            console.log('🔄 Conversation stream restarted');
+          },
+          onRetry: (attempt: number, maxAttempts: number) => {
+            console.log(`🔄 Conversation stream retry attempt ${attempt} of ${maxAttempts}`);
           },
         });
+
+        console.log('✅ Conversation stream setup successful');
       } catch (error) {
-        console.error("Failed to setup conversation stream:", error);
+        console.error("❌ Failed to setup conversation stream:", error);
       }
     };
 
     setupConversationStream();
 
     return () => {
-      // Cleanup would go here if needed
+      console.log('🔇 Cleaning up conversation stream');
+      if (conversationStreamController && typeof conversationStreamController.return === "function") {
+        conversationStreamController.return();
+      }
     };
-  }, [client, streamController]);
+  }, [client, getPeerAddress, deduplicateConversations, saveConversations, safeGetTime]);
 
   // Disabled automatic scrolling to prevent page scroll issues
   // Scrolling is now only handled manually when sending messages
@@ -1228,11 +1463,17 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                     Please wait while we establish your connection to XMTP
                   </p>
                 </div>
-              ) : isLoadingConversations && isConnected ? (
-                // Loading skeleton for conversations
+              ) : isLoadingConversations || (isConnected && conversations.length === 0 && client) ? (
+                // Loading skeleton for conversations - Show during loading OR when connected but no conversations loaded yet
                 <>
+                  <div className="text-center py-4 mb-4">
+                    <div className="flex items-center justify-center space-x-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-purple-500/20 border-t-purple-500"></div>
+                      <span className="text-sm text-gray-400">Loading conversations...</span>
+                    </div>
+                  </div>
                   {[...Array(3)].map((_, i) => (
-                    <div key={i} className="w-full p-3 rounded-lg bg-gray-800 border border-gray-600">
+                    <div key={i} className="w-full p-3 rounded-lg bg-gray-800 border border-gray-600 mb-2">
                       <div className="flex items-start space-x-3">
                         <div className="w-10 h-10 rounded-full bg-gray-700 animate-pulse flex-shrink-0"></div>
                         <div className="flex-1 min-w-0">

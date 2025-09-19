@@ -64,6 +64,7 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
 
     setLoading(true);
     try {
+      // Load all conversations like DomainLine (simple approach)
       const allConversations = await client.conversations.list();
       // Filter for DM conversations only, excluding group chats
       const dms = allConversations.filter((conv) =>
@@ -181,9 +182,11 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
   // Load conversations when client is ready
   useEffect(() => {
     if (client) {
+      setLoading(true); // Set loading state immediately
       loadConversations();
     } else {
       setConversations([]);
+      setLoading(false);
     }
   }, [client, loadConversations]);
 
@@ -326,19 +329,49 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
     const setupMessageStream = async () => {
       try {
         streamController = await activeConversation.originalDm.stream({
+          retryAttempts: 5,
+          retryDelay: 3000,
           onValue: (message: DecodedMessage) => {
-            if (message && typeof message.content === "string") {
+            console.log('📨 New message received:', {
+              id: message.id,
+              content: message.content,
+              conversationId: message.conversationId
+            });
+
+            if (message && typeof message.content === "string" && message.content.trim() !== "") {
               setMessages(prev => {
                 // Check if message already exists
                 const exists = prev.find(m => m.id === message.id);
-                if (exists) return prev;
+                if (exists) {
+                  console.log('⚠️ Message already exists, skipping');
+                  return prev;
+                }
+
+                console.log('✅ Adding new message to chat');
+
+                // Auto-scroll to bottom
+                setTimeout(() => {
+                  const messagesContainer = document.querySelector('.overflow-y-auto');
+                  if (messagesContainer) {
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                  }
+                }, 100);
 
                 return [...prev, message];
               });
             }
           },
           onError: (error: unknown) => {
-            console.error("Message stream error:", error);
+            console.error("❌ Message stream error:", error);
+          },
+          onFail: () => {
+            console.log('❌ Message stream failed');
+          },
+          onRestart: () => {
+            console.log('🔄 Message stream restarted');
+          },
+          onRetry: (attempt: number, maxAttempts: number) => {
+            console.log(`🔄 Message stream retry ${attempt}/${maxAttempts}`);
           },
         });
       } catch (error) {
@@ -607,7 +640,37 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
                   {loading && <span className="text-xs text-gray-400 ml-2">(Loading...)</span>}
                 </h3>
                 <div className="space-y-2">
-                  {conversations.map((conversation) => (
+                  {loading ? (
+                    // Loading skeleton for conversations
+                    <>
+                      <div className="text-center py-4 mb-4">
+                        <div className="flex items-center justify-center space-x-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-purple-500/20 border-t-purple-500"></div>
+                          <span className="text-sm text-gray-400">Loading conversations...</span>
+                        </div>
+                      </div>
+                      {[...Array(3)].map((_, i) => (
+                        <div key={i} className="w-full p-3 rounded-lg bg-gray-800 border border-gray-600 mb-2">
+                          <div className="flex items-start space-x-3">
+                            <div className="w-8 h-8 rounded-full bg-gray-700 animate-pulse flex-shrink-0"></div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="h-4 bg-gray-700 rounded animate-pulse w-24"></div>
+                                <div className="h-3 bg-gray-700 rounded animate-pulse w-16"></div>
+                              </div>
+                              <div className="h-3 bg-gray-700 rounded animate-pulse w-32"></div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  ) : conversations.length === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="text-gray-400 text-sm">No conversations yet</div>
+                      <div className="text-gray-500 text-xs mt-1">Start a new conversation above</div>
+                    </div>
+                  ) : (
+                    conversations.map((conversation) => (
                 <button
                   key={conversation.id}
                   onClick={async () => {
@@ -652,14 +715,7 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
                     )}
                   </div>
                 </button>
-              ))}
-              
-                  {conversations.length === 0 && !loading && (
-                    <div className="text-center py-8">
-                      <div className="text-gray-400 text-sm">No conversations yet</div>
-                      <div className="text-gray-500 text-xs mt-1">Start a new conversation above</div>
-                    </div>
-                  )}
+              )))}
                 </div>
               </>
             )}
