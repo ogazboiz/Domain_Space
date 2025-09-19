@@ -8,6 +8,7 @@ import { useXMTPContext } from '@/contexts/XMTPContext'
 import { Search, Globe, MessageCircle, Loader2 } from 'lucide-react'
 import { useNames } from '@/data/use-doma'
 import { Name } from '@/types/doma'
+import { DomainAvatar } from '@/components/ui/DomainAvatar'
 
 interface ChatInterfaceProps {
   defaultPeerAddress?: string;
@@ -568,11 +569,11 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
                           className="w-full p-3 rounded-lg text-left transition-colors bg-gray-800 hover:bg-gray-700 border border-gray-600"
                         >
                           <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center">
-                              <span className="text-blue-400 text-xs font-bold">
-                                {domain.name.split('.')[1]?.slice(0, 2).toUpperCase() || 'DO'}
-                              </span>
-                            </div>
+                            <DomainAvatar
+                              domain={domain.name}
+                              className="w-8 h-8"
+                              size={32}
+                            />
                             <div className="flex-1 min-w-0">
                               <div className="text-white font-medium truncate">
                                 {domain.name}
@@ -631,11 +632,11 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
                   }`}
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 rounded-full bg-purple-600/20 border border-purple-500/30 flex items-center justify-center">
-                      <span className="text-purple-400 text-xs font-bold">
-                        {conversation.peerAddress.slice(2, 4).toUpperCase()}
-                      </span>
-                    </div>
+                    <DomainAvatar
+                      domain={conversation.peerAddress}
+                      className="w-8 h-8"
+                      size={32}
+                    />
                     <div className="flex-1 min-w-0">
                       <div className="text-white font-medium truncate">
                         {`${conversation.peerAddress.slice(0, 6)}...${conversation.peerAddress.slice(-4)}`}
@@ -673,11 +674,11 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
             {/* Chat Header */}
             <div className="p-4 border-b border-gray-700">
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-full bg-purple-600/20 border border-purple-500/30 flex items-center justify-center">
-                  <span className="text-purple-400 text-xs font-bold">
-                    {activePeerAddress ? activePeerAddress.slice(2, 4).toUpperCase() : '💬'}
-                  </span>
-                </div>
+                <DomainAvatar
+                  domain={activePeerAddress || 'unknown'}
+                  className="w-8 h-8"
+                  size={32}
+                />
                 <div>
                   <h3 className="text-white font-medium">
                     {activePeerAddress ? `${activePeerAddress.slice(0, 6)}...${activePeerAddress.slice(-4)}` : 'XMTP Chat'}

@@ -75,7 +75,7 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
 
     try {
-      console.log('🔄 Revoking old XMTP installations using static revocation...');
+      console.log('🔄 Using static revocation for installation limit...');
 
       // Step 1: Get the inbox ID for this address
       const inboxId = await Client.getInboxIdForAddress(address as string, { env: "dev" });
@@ -85,30 +85,26 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
       const inboxStates = await Client.inboxStateFromInboxIds([inboxId], "dev");
       console.log(`Found ${inboxStates[0].installations.length} installations`);
 
-      // Step 3: Get installation bytes to revoke (keep only the most recent 2-3)
+      // Step 3: Revoke ALL installations using static revocation
+      // This is the key - we revoke all installations to clear the limit
       const installations = inboxStates[0].installations;
-      if (installations.length > 3) {
-        // Revoke all but the most recent 2 installations
-        const toRevokeInstallations = installations.slice(0, -2);
-        const toRevokeInstallationBytes = toRevokeInstallations.map((i) => i.bytes);
+      const toRevokeInstallationBytes = installations.map((i) => i.bytes);
 
-        console.log(`Revoking ${toRevokeInstallations.length} old installations...`);
+      console.log(`Revoking all ${installations.length} installations using static revocation...`);
 
-        // Step 4: Use static revocation (doesn't require being logged in)
-        await Client.revokeInstallations(
-          signer,
-          inboxId,
-          toRevokeInstallationBytes,
-          "dev",
-          { enableLogging: true }
-        );
+      // Step 4: Use static revocation with the signer (recovery address)
+      await Client.revokeInstallations(
+        signer,
+        inboxId,
+        toRevokeInstallationBytes,
+        "dev",
+        { enableLogging: true }
+      );
 
-        console.log('✅ Installation cleanup completed');
-      } else {
-        console.log('No installations need to be revoked');
-      }
+      console.log('✅ All installations revoked using static revocation');
 
-      // Now try to connect again using core logic
+      // Step 5: Now create a fresh client
+      console.log('🔄 Creating fresh XMTP client after revocation...');
       await connectXmtpCore();
 
     } catch (err) {
@@ -127,7 +123,7 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
   }, []);
 
-  // Connect to XMTP with context refresh on installation limit
+  // Connect to XMTP with static revocation on installation limit
   const connectXmtp = useCallback(async () => {
     if (!address) return;
     setIsLoading(true);
@@ -139,19 +135,18 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
       console.error("Failed to connect to XMTP:", err);
       const errorMessage = err instanceof Error ? err.message : "Failed to connect to XMTP";
 
-      // Check if it's the installation limit error and refresh context
-      if (errorMessage.includes('10/10 installations')) {
-        console.log('🔄 Installation limit reached, refreshing context...');
-        setError('Installation limit reached. Please try connecting again.');
-        // Reset context completely
-        resetXmtp();
+      // Check if it's the installation limit error and use static revocation
+      if (errorMessage.includes('10/10 installations') || errorMessage.includes('already registered 10/10')) {
+        console.log('🔄 Installation limit reached, using static revocation...');
+        setError('Installation limit reached. Cleaning up installations...');
+        // Use static revocation to clear all installations
+        await revokeInstallations();
       } else {
         setError(errorMessage);
+        setIsLoading(false);
       }
-    } finally {
-      setIsLoading(false);
     }
-  }, [address, connectXmtpCore, resetXmtp]);
+  }, [address, connectXmtpCore, revokeInstallations]);
 
   // Auto-disconnect when wallet disconnects
   useEffect(() => {

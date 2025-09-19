@@ -24,6 +24,11 @@ const spaceMono = Space_Mono({
 export const metadata: Metadata = {
   title: "Domain Space - Grab your space On-chain with DOMA",
   description: "A beautiful cosmic-themed domain marketplace built with Next.js, TypeScript, and Tailwind CSS",
+  icons: {
+    icon: '/favicon.ico?v=1',
+    shortcut: '/favicon.ico?v=1',
+    apple: '/favicon.ico?v=1',
+  },
 };
 
 export default function RootLayout({
@@ -39,7 +44,20 @@ export default function RootLayout({
             {children}
           </Providers>
         </AppKit>
-        <Toaster />
+        <Toaster
+          theme="dark"
+          position="bottom-right"
+          toastOptions={{
+            style: {
+              background: '#111827', // bg-gray-900 to match your dark theme
+              border: '1px solid #374151', // border-gray-700
+              color: '#ffffff',
+              fontFamily: 'var(--font-geist-mono)',
+            },
+            className: 'font-mono',
+          }}
+          richColors
+        />
       </body>
     </html>
   );

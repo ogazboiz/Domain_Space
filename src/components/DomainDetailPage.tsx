@@ -5,6 +5,7 @@ import { Name } from "@/types/doma";
 import { formatDistanceToNow } from "date-fns";
 // import { formatUnits } from "viem";
 import MessagingModal from "./MessagingModal";
+import { DomainAvatar } from '@/components/ui/DomainAvatar';
 
 interface DomainDetailPageProps {
   domain: Name;
@@ -115,14 +116,11 @@ const DomainDetailPage = ({
           {/* Domain Info */}
           <div className="space-y-8">
             <div className="flex items-center space-x-4">
-              <div 
-                className="w-16 h-16 rounded-2xl flex items-center justify-center"
-                style={{ backgroundColor: '#EEEFFF29' }}
-              >
-                <span className="text-white text-2xl font-bold">
-                  {tld.charAt(0).toUpperCase()}
-                </span>
-              </div>
+              <DomainAvatar
+                domain={domain.name}
+                className="w-16 h-16"
+                size={64}
+              />
               <div>
                 <h1 
                   className="text-4xl font-bold"

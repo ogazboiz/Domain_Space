@@ -9,6 +9,7 @@ import { useWalletClient } from "wagmi";
 import { viemToEthersSigner, type CurrencyToken, type CreateOfferParams, type BuyListingParams, type OrderbookFee, OrderbookType } from "@doma-protocol/orderbook-sdk";
 import { toast } from "sonner";
 import { useHelper } from "@/hooks/use-helper";
+import { DomainAvatar } from '@/components/ui/DomainAvatar';
 
 interface DomainActionModalProps {
   domain: Name;
@@ -242,12 +243,11 @@ export default function DomainActionModal({
         <div className="p-6 border-b border-gray-700">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div
-                className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold"
-                style={{ backgroundColor: getTldColor(tld) }}
-              >
-                {tld.charAt(0).toUpperCase()}
-              </div>
+              <DomainAvatar
+                domain={domain.name}
+                className="w-16 h-16"
+                size={64}
+              />
               <div>
                 <h2 className="text-2xl font-bold text-white">{domain.name}</h2>
                 <p className="text-gray-400">

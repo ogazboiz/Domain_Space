@@ -10,6 +10,7 @@ import { useAccount, useAccountEffect } from "wagmi";
 // import { useHelper } from "@/hooks/use-helper";
 import { useUsername } from "@/contexts/UsernameContext";
 import { useXMTPContext } from "@/contexts/XMTPContext";
+import { DomainAvatar } from '@/components/ui/DomainAvatar';
 import DomainCard from "./DomainCard";
 import MessagingModal from "./MessagingModal";
 import DomainDetailPage from "./DomainDetailPage";
@@ -744,15 +745,45 @@ export default function DomainMarketplace() {
     // Detect actual address change (not just undefined to address or vice versa)
     if (prevAddress && currentAddress && prevAddress !== currentAddress) {
       console.log('🔄 Address switched from', prevAddress, 'to', currentAddress);
-      console.log('🔄 Refreshing page due to address switch...');
 
-      // Reload the entire page to ensure clean state
-      window.location.reload();
+      if (activeTab === "myspace" || activeTab === "chat") {
+        console.log('🔄 Reloading data for myspace/chat tabs due to address switch');
+
+        // Reset myspace tab states
+        if (activeTab === "myspace") {
+          setMyspaceTab("owned");
+          setSelectedCategory("all");
+        }
+
+        // Reset chat states and force XMTP reconnection
+        if (activeTab === "chat") {
+          console.log('🔄 Resetting XMTP for address switch:', currentAddress);
+
+          // Reset XMTP context completely
+          resetXmtp();
+
+          // Reset chat UI states
+          setChatSearchQuery("");
+          setChatDomainSearchQuery("");
+          setShowChatDomainSearch(false);
+
+          // Trigger reconnection after a brief delay to ensure clean state
+          setTimeout(() => {
+            console.log('🔄 Reconnecting XMTP for new address:', currentAddress);
+            connectXmtp();
+          }, 200);
+        }
+
+        // Close any open modals related to these tabs
+        setShowMessaging(false);
+        setShowCheckingDM(false);
+        setSelectedUserAddress("");
+      }
     }
 
     // Update the ref with current address
     prevAddressRef.current = currentAddress;
-  }, [address]);
+  }, [address, activeTab, resetXmtp, connectXmtp]);
 
   // Handle wallet disconnect (when address becomes undefined)
   useAccountEffect({
@@ -1005,9 +1036,16 @@ export default function DomainMarketplace() {
     };
   }, [isFullscreen]);
 
-  // Tab definitions
+  // Auto-switch from details tab to browse tab if no domain is selected
+  useEffect(() => {
+    if (activeTab === "details" && !selectedDomain) {
+      setActiveTab("browse");
+    }
+  }, [activeTab, selectedDomain]);
+
+  // Tab definitions - only show Domain Details tab when a domain is selected
   const tabs = [
-    { id: "details", label: "Domain Details", count: selectedDomain ? "1" : "0" },
+    ...(selectedDomain ? [{ id: "details", label: "Domain Details", count: "1" }] : []),
     { id: "browse", label: "Browse Domains", count: totalBrowseCount > 0 ? totalBrowseCount.toString() : "..." },
     { id: "myspace", label: "My Space", count: "12" },
     { id: "chat", label: "Chat", count: "5" }
@@ -1111,14 +1149,11 @@ export default function DomainMarketplace() {
                   borderImage: 'radial-gradient(88.13% 63.48% at 26.09% 25.74%, #FFFFFF 0%, rgba(255, 255, 255, 0.905829) 8.52%, rgba(255, 255, 255, 0.801323) 40.45%, rgba(255, 255, 255, 0.595409) 40.46%, rgba(255, 255, 255, 0.29) 96.15%, rgba(255, 255, 255, 0) 100%, rgba(255, 255, 255, 0) 100%), linear-gradient(180deg, rgba(0, 0, 0, 0.2) 18.72%, rgba(255, 30, 0, 0.2) 43.64%, rgba(255, 255, 255, 0.2) 67.21%)',
                   borderImageSlice: 1
                 }}>
-                  <div
-                    className="w-16 h-16 rounded-2xl flex items-center justify-center"
-                    style={{ backgroundColor: getTldColor(tld), opacity: 0.8 }}
-                  >
-                    <span className="text-white text-2xl font-bold">
-                      {tld.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
+                  <DomainAvatar
+                    domain={domainToShow.name}
+                    className="w-16 h-16"
+                    size={64}
+                  />
                   <div>
                     <h1 className="text-4xl font-bold font-space-mono">
                       <span className="text-white">{domainToShow.name.split('.')[0]}</span>

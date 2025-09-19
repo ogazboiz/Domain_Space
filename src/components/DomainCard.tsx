@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { Name } from "@/types/doma";
+import { DomainAvatar } from '@/components/ui/DomainAvatar';
 
 interface DomainCardProps {
   domain: Name;
@@ -109,14 +110,11 @@ const DomainCard = ({
       {/* Header Section */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center space-x-3 flex-1 min-w-0">
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: getTldColor(tld), opacity: 0.8 }}
-          >
-            <span className="text-white text-xs font-bold">
-              {tld.charAt(0).toUpperCase()}
-            </span>
-          </div>
+          <DomainAvatar
+            domain={domain.name}
+            className="w-8 h-8 flex-shrink-0"
+            size={32}
+          />
           <div className="flex-1 min-w-0">
             <h3
               className="font-bold truncate font-space-mono"
