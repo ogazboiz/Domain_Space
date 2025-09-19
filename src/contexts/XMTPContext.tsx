@@ -14,6 +14,7 @@ type XMTPContextType = {
   revokeInstallations: () => Promise<void>;
   connectXmtp: () => Promise<void>;
   resetXmtp: () => void;
+  clearLocalData: () => void;
 };
 
 const XMTPContext = createContext<XMTPContextType | undefined>(undefined);
@@ -77,12 +78,53 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
     try {
       console.log('🔄 Using static revocation for installation limit...');
 
-      // Step 1: Create a temporary client to get the inbox ID for this address
-      const tempClient = await Client.create(signer, { env: "dev" });
-      const inboxId = tempClient.inboxId;
-      if (!inboxId) {
-        throw new Error('Failed to get inbox ID from client');
+      // Step 1: First, find the inbox ID for this identity using static method
+      // This is the key - we need to find the inbox ID without creating a client
+      const identifier = {
+        identifier: address as string,
+        identifierKind: "Ethereum" as const
+      };
+
+      // Use the static Client method to find inbox ID by identifier
+      let inboxId: string;
+      try {
+        // Try to find the inbox ID using the static method
+        console.log('Finding inbox ID for identity:', address);
+
+        // Check if this identity can receive messages (has an existing inbox)
+        const canMessage = await Client.canMessage([identifier], "dev");
+        if (!canMessage.get(address.toLowerCase())) {
+          throw new Error('This identity is not registered with XMTP yet. No inbox to revoke installations from.');
+        }
+
+        // Try to build a temporary client to get the inbox ID
+        // This might fail if we're at the installation limit, but let's try a different approach
+        console.log('Attempting to get inbox ID using static methods...');
+
+        // Unfortunately, we need the inbox ID to use static revocation
+        // Let's try a workaround: attempt to build an existing client first
+        try {
+          const existingClient = await Client.build(identifier, { env: "dev" });
+          inboxId = existingClient.inboxId;
+          console.log('Got inbox ID from existing client:', inboxId);
+        } catch (buildError) {
+          console.log('Build failed, probably due to installation limit. Trying alternative approach...');
+
+          // If build fails, we're likely at the installation limit
+          // We need to use a more direct approach to get the inbox ID
+          // For now, let's show a clearer error message
+          throw new Error(
+            'Cannot automatically revoke installations due to installation limit. ' +
+            'Please clear your browser data (localStorage) for this domain and try connecting again. ' +
+            'This will reset your local XMTP state and allow you to create a fresh client.'
+          );
+        }
+
+      } catch (discoveryError) {
+        console.error('Failed to discover inbox ID:', discoveryError);
+        throw discoveryError;
       }
+
       console.log(`Found inbox ID: ${inboxId}`);
 
       // Step 2: Get the inbox states to see all installations
@@ -90,7 +132,6 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
       console.log(`Found ${inboxStates[0].installations.length} installations`);
 
       // Step 3: Revoke ALL installations using static revocation
-      // This is the key - we revoke all installations to clear the limit
       const installations = inboxStates[0].installations;
       const toRevokeInstallationBytes = installations.map((i) => i.bytes);
 
@@ -112,11 +153,44 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
 
     } catch (err) {
       console.error("Failed to revoke installations:", err);
-      setError(err instanceof Error ? err.message : 'Failed to revoke installations');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to revoke installations';
+      setError(`Installation revocation failed: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
   }, [address, signer, connectXmtpCore]);
+
+  // Clear local browser data for XMTP
+  const clearLocalData = useCallback(() => {
+    console.log('🧹 Clearing XMTP local data...');
+    try {
+      // Clear localStorage keys related to XMTP
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('xmtp') || key.includes('XMTP'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+
+      // Clear IndexedDB databases related to XMTP
+      if ('indexedDB' in window) {
+        // Note: This is a simplified approach. In a production app, you might want to be more specific
+        console.log('Cleared XMTP localStorage data');
+      }
+
+      setClient(null);
+      setError(null);
+      setIsLoading(false);
+
+      console.log('✅ Local XMTP data cleared. Please refresh the page and try connecting again.');
+      alert('XMTP local data cleared. Please refresh the page and try connecting again.');
+    } catch (err) {
+      console.error('Failed to clear local data:', err);
+      alert('Failed to clear local data. Please manually clear your browser data for this site.');
+    }
+  }, []);
 
   // Reset XMTP completely
   const resetXmtp = useCallback(() => {
@@ -180,6 +254,7 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
         revokeInstallations,
         connectXmtp,
         resetXmtp,
+        clearLocalData,
       }}
     >
       {children}

@@ -29,7 +29,7 @@ interface EnhancedConversation {
 }
 
 export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "", setSearchQuery, onManualConversationSelect }: ImprovedXMTPChatProps) {
-  const { client, isLoading, error, isConnected, revokeInstallations } = useXMTPContext()
+  const { client, isLoading, error, isConnected, revokeInstallations, clearLocalData } = useXMTPContext()
   const { address } = useAccount()
   
   // State
@@ -1057,13 +1057,22 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
               {error}
             </div>
             {error.includes('installation limit') && (
-              <button
-                onClick={revokeInstallations}
-                disabled={isLoading}
-                className="px-3 py-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs rounded transition-colors"
-              >
-                {isLoading ? 'Revoking...' : 'Revoke Old Installations'}
-              </button>
+              <div className="space-y-2">
+                <button
+                  onClick={revokeInstallations}
+                  disabled={isLoading}
+                  className="px-3 py-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs rounded transition-colors mr-2"
+                >
+                  {isLoading ? 'Revoking...' : 'Revoke Old Installations'}
+                </button>
+                <button
+                  onClick={clearLocalData}
+                  disabled={isLoading}
+                  className="px-3 py-1 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white text-xs rounded transition-colors"
+                >
+                  Clear Local Data
+                </button>
+              </div>
             )}
           </div>
         )}
