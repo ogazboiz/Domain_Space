@@ -77,8 +77,12 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
     try {
       console.log('🔄 Using static revocation for installation limit...');
 
-      // Step 1: Get the inbox ID for this address
-      const inboxId = await Client.getInboxIdForAddress(address as string, { env: "dev" });
+      // Step 1: Create a temporary client to get the inbox ID for this address
+      const tempClient = await Client.create(signer, { env: "dev" });
+      const inboxId = tempClient.inboxId;
+      if (!inboxId) {
+        throw new Error('Failed to get inbox ID from client');
+      }
       console.log(`Found inbox ID: ${inboxId}`);
 
       // Step 2: Get the inbox states to see all installations
@@ -97,8 +101,7 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
         signer,
         inboxId,
         toRevokeInstallationBytes,
-        "dev",
-        { enableLogging: true }
+        "dev"
       );
 
       console.log('✅ All installations revoked using static revocation');

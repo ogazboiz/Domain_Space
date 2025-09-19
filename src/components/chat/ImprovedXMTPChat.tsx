@@ -868,7 +868,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                       ...conv,
                       metadata: {
                         ...conv.metadata,
-                        lastMessage: message.content,
+                        lastMessage: String(message.content),
                         lastMessageTime: new Date(Number(message.sentAtNs) / 1_000_000)
                       }
                     };
