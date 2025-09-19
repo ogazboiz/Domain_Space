@@ -29,7 +29,7 @@ interface EnhancedConversation {
 }
 
 export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "", setSearchQuery, onManualConversationSelect }: ImprovedXMTPChatProps) {
-  const { client, isLoading, error, isConnected, revokeInstallations, clearLocalData } = useXMTPContext()
+  const { client, isLoading, error, isConnected, revokeInstallations } = useXMTPContext()
   const { address } = useAccount()
   
   // State
@@ -1025,10 +1025,36 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
             <div className="text-purple-400">Connecting...</div>
           )}
           {error && (
-            <div className="text-red-400 text-sm mt-2">
-              Error: {String(error)}
+            <div className="text-red-400 text-sm mt-4 p-4 bg-red-900/20 border border-red-700 rounded-lg">
+              <div className="mb-3">Error: {String(error)}</div>
+              {(error.includes('installation limit') || error.includes('Cannot register a new installation') || error.includes('Installation limit reached')) && (
+                <div className="space-y-3">
+                  <div className="text-xs text-red-200 mb-3">
+                    🚨 <strong>Installation Limit (10/10)</strong>
+                  </div>
+
+                  <div className="bg-blue-900/30 border border-blue-600 rounded-lg p-3 mb-3">
+                    <div className="text-blue-200 text-xs mb-2">
+                      <strong>Quick Fix:</strong>
+                    </div>
+                    <div className="text-blue-100 text-xs space-y-1">
+                      <div>1. Close other tabs with this site</div>
+                      <div>2. Disconnect wallet &rarr; Refresh &rarr; Reconnect</div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={revokeInstallations}
+                    disabled={isLoading}
+                    className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm rounded transition-colors"
+                  >
+                    {isLoading ? 'Removing old installations...' : '🔄 Auto-Revoke (Works!)'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
+
         </div>
       </div>
     )
@@ -1056,24 +1082,6 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
             <div className="text-sm text-red-300 mb-2">
               {error}
             </div>
-            {error.includes('installation limit') && (
-              <div className="space-y-2">
-                <button
-                  onClick={revokeInstallations}
-                  disabled={isLoading}
-                  className="px-3 py-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs rounded transition-colors mr-2"
-                >
-                  {isLoading ? 'Revoking...' : 'Revoke Old Installations'}
-                </button>
-                <button
-                  onClick={clearLocalData}
-                  disabled={isLoading}
-                  className="px-3 py-1 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white text-xs rounded transition-colors"
-                >
-                  Clear Local Data
-                </button>
-              </div>
-            )}
           </div>
         )}
         
@@ -1646,6 +1654,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
           </div>
         )}
       </div>
+
     </div>
   )
 }
