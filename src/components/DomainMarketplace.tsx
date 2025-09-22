@@ -164,7 +164,13 @@ const ChatDomainSearchBar = ({
   onFocus: () => void;
   searchRef: React.RefObject<HTMLDivElement | null>;
   onDomainClick: (domain: Name) => void;
-}) => (
+}) => {
+  // Get TLD color function
+  const getTldColor = (tld: string) => {
+    return TLD_COLORS[tld.toLowerCase()] || '#6B7280'; // gray-500
+  };
+
+  return (
   <div ref={searchRef} className="relative w-full lg:w-64">
     <input
       type="text"
@@ -197,41 +203,48 @@ const ChatDomainSearchBar = ({
           </div>
         ) : (
           <div className="py-2">
-            {domains.slice(0, 10).map((domain) => (
-              <button
-                key={domain.name}
-                onClick={() => {
-                  console.log('🖱️ Domain dropdown clicked:', domain.name, domain.claimedBy);
-                  setShowResults(false);
-                  onDomainClick(domain);
-                }}
-                className="w-full px-4 py-3 text-left hover:bg-gray-700 transition-colors flex items-center space-x-3"
-              >
-                <div className="w-8 h-8 rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center flex-shrink-0">
-                  <span className="text-blue-400 text-xs font-bold">
-                    {domain.name.split('.')[1]?.slice(0, 2).toUpperCase() || 'DO'}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-white font-medium truncate">
-                    {domain.name}
+            {domains.slice(0, 10).map((domain) => {
+              const tld = domain.name.split('.').pop() || '';
+              const tldColor = getTldColor(tld);
+              
+              return (
+                <button
+                  key={domain.name}
+                  onClick={() => {
+                    console.log('🖱️ Domain dropdown clicked:', domain.name, domain.claimedBy);
+                    setShowResults(false);
+                    onDomainClick(domain);
+                  }}
+                  className="w-full px-4 py-3 text-left hover:bg-gray-700 transition-colors flex items-center space-x-3"
+                >
+                  <DomainAvatar
+                    domain={domain.name}
+                    className="w-10 h-10 flex-shrink-0"
+                    size={40}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-white font-medium truncate">
+                      <span className="text-white">{domain.name.split('.')[0]}</span>
+                      <span style={{ color: tldColor }}>.{tld}</span>
+                    </div>
+                    <div className="text-gray-400 text-xs truncate">
+                      {domain.claimedBy ? `Owner: ${domain.claimedBy.split(':')[2]?.slice(0, 6)}...${domain.claimedBy.split(':')[2]?.slice(-4)}` : 'Available'}
+                    </div>
                   </div>
-                  <div className="text-gray-400 text-xs truncate">
-                    {domain.claimedBy ? `Owner: ${domain.claimedBy.split(':')[2]?.slice(0, 6)}...${domain.claimedBy.split(':')[2]?.slice(-4)}` : 'Available'}
-                  </div>
-                </div>
-                <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
-                  <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
-                </svg>
-              </button>
-            ))}
+                  <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                    <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                  </svg>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
     )}
   </div>
-);
+  );
+};
 
 // Domain Filters Component
 const DomainFilters = ({ statusFilter, setStatusFilter, priceFilter, setPriceFilter, tldFilter, setTldFilter }: { 

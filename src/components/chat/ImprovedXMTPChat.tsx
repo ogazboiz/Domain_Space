@@ -51,6 +51,54 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false)
   
+  // Resizable sidebar state
+  const [sidebarWidth, setSidebarWidth] = useState(320) // Default width in pixels
+  const [isResizing, setIsResizing] = useState(false)
+  
+  // Handle sidebar resize
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsResizing(true)
+  }
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isResizing) return
+    
+    const newWidth = e.clientX
+    const minWidth = 250
+    const maxWidth = 500
+    
+    if (newWidth >= minWidth && newWidth <= maxWidth) {
+      setSidebarWidth(newWidth)
+    }
+  }, [isResizing])
+
+  const handleMouseUp = useCallback(() => {
+    setIsResizing(false)
+  }, [])
+
+  // Add event listeners for resize
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
+    } else {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [isResizing, handleMouseMove, handleMouseUp])
+  
   // Debug: Track component renders
 
   // Enhanced conversation filtering with better search logic
@@ -1053,8 +1101,11 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
 
   return (
     <div className="h-full flex bg-gray-900 text-white">
-      {/* Sidebar */}
-      <div className="w-80 border-r border-gray-700 flex flex-col">
+      {/* Sidebar - Resizable */}
+      <div 
+        className="border-r border-gray-700 flex flex-col relative"
+        style={{ width: `${sidebarWidth}px` }}
+      >
         {/* Connection Status */}
         {!isConnected && address && (
           <div className="p-3 bg-blue-900/50 border-b border-blue-700">
@@ -1382,6 +1433,12 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
             </div>
           </div>
         </div>
+        
+        {/* Resize Handle */}
+        <div
+          className="absolute top-0 right-0 w-1 h-full bg-transparent hover:bg-gray-600 cursor-col-resize z-10"
+          onMouseDown={handleMouseDown}
+        />
       </div>
 
       {/* Main Chat Area */}
