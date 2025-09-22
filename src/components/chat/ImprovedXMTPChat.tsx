@@ -7,6 +7,8 @@ import { type Dm, type DecodedMessage, ConsentState } from '@xmtp/browser-sdk'
 import { useXMTPContext } from '@/contexts/XMTPContext'
 import { toast } from 'sonner'
 import { ChatAvatar } from '@/components/ui/ChatAvatar'
+import TradeOptionsModal from '../TradeOptionsModal'
+import TradeMessageRenderer from '../TradeMessageRenderer'
 
 interface ImprovedXMTPChatProps {
   defaultPeerAddress?: string;
@@ -50,6 +52,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
   const [isManuallySelecting, setIsManuallySelecting] = useState(false)
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false)
+  const [showTradeModal, setShowTradeModal] = useState(false)
   
   // Resizable sidebar state
   const [sidebarWidth, setSidebarWidth] = useState(320) // Default width in pixels
@@ -1610,21 +1613,37 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                   </div>
                 </div>
 
-                {/* Conversation Sync Button - Syncs only this conversation */}
-                <button
-                  onClick={handleConversationSync}
-                  disabled={isSyncingConversation || !activeConversation}
-                  className="p-2 rounded-lg bg-purple-600/20 border border-purple-500/30 hover:bg-purple-600/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Sync this conversation messages"
-                >
-                  {isSyncingConversation ? (
-                    <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
+                <div className="flex items-center space-x-2">
+                  {/* Trade Button */}
+                  {activeConversation && (
+                    <button
+                      onClick={() => {
+                        console.log('Trade button clicked, peer:', activePeerAddress);
+                        setShowTradeModal(true);
+                      }}
+                      className="px-3 py-1.5 text-sm bg-green-600/20 border border-green-500/30 text-green-400 hover:bg-green-600/30 transition-colors rounded-lg"
+                      title="Trade domains"
+                    >
+                      Trade
+                    </button>
                   )}
-                </button>
+
+                  {/* Conversation Sync Button - Syncs only this conversation */}
+                  <button
+                    onClick={handleConversationSync}
+                    disabled={isSyncingConversation || !activeConversation}
+                    className="p-2 rounded-lg bg-purple-600/20 border border-purple-500/30 hover:bg-purple-600/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Sync this conversation messages"
+                  >
+                    {isSyncingConversation ? (
+                      <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1656,18 +1675,34 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                       className={`flex ${isFromMe ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
-                        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                          isFromMe
-                            ? 'bg-purple-600 text-white'
-                            : 'bg-gray-700 text-gray-100'
+                        className={`max-w-xs lg:max-w-md ${
+                          // Only add padding and background for regular messages, not trade cards
+                          String(message.content).startsWith('created_offer::') ||
+                          String(message.content).startsWith('created_listing::') ||
+                          String(message.content).startsWith('proposal::')
+                            ? ''
+                            : `px-4 py-2 rounded-lg ${
+                                isFromMe
+                                  ? 'bg-purple-600 text-white'
+                                  : 'bg-gray-700 text-gray-100'
+                              }`
                         }`}
                       >
-                        <div className="text-sm">{String(message.content)}</div>
-                        <div className={`text-xs mt-1 ${
-                          isFromMe ? 'text-purple-200' : 'text-gray-400'
-                        }`}>
-                          {formatDistanceToNow(new Date(Number(message.sentAtNs) / 1_000_000), { addSuffix: true })}
-                        </div>
+                        <TradeMessageRenderer
+                          content={String(message.content)}
+                          isFromMe={isFromMe}
+                          timestamp={new Date(Number(message.sentAtNs) / 1_000_000)}
+                        />
+                        {/* Only show timestamp for regular messages */}
+                        {!String(message.content).startsWith('created_offer::') &&
+                         !String(message.content).startsWith('created_listing::') &&
+                         !String(message.content).startsWith('proposal::') && (
+                          <div className={`text-xs mt-1 ${
+                            isFromMe ? 'text-purple-200' : 'text-gray-400'
+                          }`}>
+                            {formatDistanceToNow(new Date(Number(message.sentAtNs) / 1_000_000), { addSuffix: true })}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )
@@ -1720,6 +1755,14 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
           </div>
         )}
       </div>
+
+      {/* Trade Options Modal */}
+      <TradeOptionsModal
+        conversation={activeConversation}
+        isOpen={showTradeModal}
+        onClose={() => setShowTradeModal(false)}
+        peerAddress={activePeerAddress || ''}
+      />
     </div>
   )
 }

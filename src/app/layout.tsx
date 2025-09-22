@@ -22,12 +22,16 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Domain Space - Grab your space On-chain with DOMA",
-  description: "A beautiful cosmic-themed domain marketplace built with Next.js, TypeScript, and Tailwind CSS",
+  title: "Doma Space - Premium Domain Marketplace & Trading Platform",
+  description: "Discover, trade, and manage premium domains with our advanced marketplace. Features XMTP messaging, orderbook integration, and seamless domain transactions.",
   icons: {
-    icon: '/favicon.ico?v=1',
-    shortcut: '/favicon.ico?v=1',
-    apple: '/favicon.ico?v=1',
+    icon: [
+      { url: '/favicon.ico?v=2', sizes: 'any' },
+      { url: '/favicon.ico?v=2', type: 'image/x-icon' },
+      { url: '/logo.svg?v=2', type: 'image/svg+xml' }
+    ],
+    shortcut: '/favicon.ico?v=2',
+    apple: '/favicon.ico?v=2',
   },
 };
 
@@ -38,6 +42,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${bitter.variable} ${spaceMono.variable}`}>
+      <head>
+        <link rel="icon" href="/favicon.ico?v=2" sizes="any" />
+        <link rel="icon" href="/favicon.ico?v=2" type="image/x-icon" />
+        <link rel="icon" href="/logo.svg?v=2" type="image/svg+xml" />
+        <link rel="shortcut icon" href="/favicon.ico?v=2" />
+        <link rel="apple-touch-icon" href="/favicon.ico?v=2" />
+      </head>
       <body className={`${inter.className} antialiased`}>
         <AppKit>
           <Providers>
