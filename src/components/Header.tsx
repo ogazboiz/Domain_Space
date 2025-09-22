@@ -99,7 +99,7 @@ export default function Header() {
   };
 
   return (
-    <header className="relative z-20 w-full">
+    <header className="sticky top-0 z-50 w-full bg-black/95 backdrop-blur-md border-b border-white/10">
       <div className="flex items-center justify-between px-4 py-4 lg:px-8 lg:py-6 max-w-7xl mx-auto h-16 lg:h-20">
 
         {/* Logo Section */}

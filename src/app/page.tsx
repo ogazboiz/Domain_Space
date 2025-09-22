@@ -3,6 +3,7 @@ import Features from '@/components/Features'
 import DomainMarketplace from '@/components/DomainMarketplace'
 import Footer from '@/components/Footer'
 import { Metadata } from 'next'
+import Header from '@/components/Header'
 
 export const metadata: Metadata = {
   title: 'Doma Space - Premium Domain Marketplace & Trading Platform',
@@ -44,6 +45,8 @@ export const metadata: Metadata = {
 export default function Home() {
   return (
     <div>
+       {/* Header */}
+       <Header/>
       <Hero />
       <Features />
       <DomainMarketplace />

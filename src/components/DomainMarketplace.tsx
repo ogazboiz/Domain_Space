@@ -144,15 +144,16 @@ const SearchBar = ({ searchQuery, setSearchQuery, placeholder = "Search domains.
 );
 
 // Chat Domain Search Bar Component with dropdown results
-const ChatDomainSearchBar = ({ 
-  searchQuery, 
-  setSearchQuery, 
-  showResults, 
+const ChatDomainSearchBar = ({
+  searchQuery,
+  setSearchQuery,
+  showResults,
   setShowResults,
   domains,
   isLoading,
   onFocus,
-  searchRef
+  searchRef,
+  onDomainClick
 }: {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
@@ -162,6 +163,7 @@ const ChatDomainSearchBar = ({
   isLoading: boolean;
   onFocus: () => void;
   searchRef: React.RefObject<HTMLDivElement | null>;
+  onDomainClick: (domain: Name) => void;
 }) => (
   <div ref={searchRef} className="relative w-full lg:w-64">
     <input
@@ -200,7 +202,8 @@ const ChatDomainSearchBar = ({
                 key={domain.name}
                 onClick={() => {
                   console.log('🖱️ Domain dropdown clicked:', domain.name, domain.claimedBy);
-                  // Domain clicked - could add navigation here
+                  setShowResults(false);
+                  onDomainClick(domain);
                 }}
                 className="w-full px-4 py-3 text-left hover:bg-gray-700 transition-colors flex items-center space-x-3"
               >
@@ -882,19 +885,23 @@ export default function DomainMarketplace() {
   }, []);
 
   const handleMessage = useCallback(async (domain: Name) => {
+    console.log('🚀 handleMessage called with domain:', domain);
     if (!domain.claimedBy) {
+      console.log('❌ Domain not claimed, showing alert');
       alert("This domain is not owned by anyone yet.");
       return;
     }
 
     // Extract address from CAIP-10 format (eip155:1:0x...)
     const ownerAddress = domain.claimedBy.split(':')[2];
+    console.log('📍 Extracted owner address:', ownerAddress);
     if (!ownerAddress) {
+      console.log('❌ Invalid owner address format');
       alert("Invalid owner address format.");
       return;
     }
 
-    console.log('Starting conversation with domain owner:', ownerAddress);
+    console.log('✅ Starting conversation with domain owner:', ownerAddress);
     
     // Set the owner address and switch to chat tab immediately
     setSelectedUserAddress(ownerAddress);
@@ -950,6 +957,34 @@ export default function DomainMarketplace() {
     // Switch to chat tab to show the new conversation
     setActiveTab("chat");
     // You can add additional logic here to highlight the new conversation
+  }, []);
+
+  // Listen for conversation created events from DialogCheckingDM
+  useEffect(() => {
+    const handleConversationCreated = (event: CustomEvent) => {
+      console.log('📨 Received conversationCreated event:', event.detail);
+      const { conversationId, userAddress } = event.detail;
+      
+      // Switch to chat tab and set the selected user address
+      setActiveTab("chat");
+      setSelectedUserAddress(userAddress);
+      
+      // Close the checking dialog
+      setShowCheckingDM(false);
+      
+      // Dispatch a custom event to trigger conversation refresh in the chat component
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('refreshConversations', {
+          detail: { conversationId, userAddress }
+        }));
+      }, 500); // Small delay to ensure the chat component is ready
+    };
+
+    window.addEventListener('conversationCreated', handleConversationCreated as EventListener);
+    
+    return () => {
+      window.removeEventListener('conversationCreated', handleConversationCreated as EventListener);
+    };
   }, []);
 
   // Handle manual conversation selection - clear selectedUserAddress to prevent auto-switching back
@@ -2123,6 +2158,7 @@ export default function DomainMarketplace() {
               isLoading={isLoadingChatDomains}
               onFocus={() => setShowChatDomainSearch(true)}
               searchRef={chatSearchRef}
+              onDomainClick={handleChatDomainMessage}
             />
           )}
         </div>
@@ -2285,6 +2321,7 @@ export default function DomainMarketplace() {
               isLoading={isLoadingChatDomains}
               onFocus={() => setShowChatDomainSearch(true)}
               searchRef={chatSearchRef}
+              onDomainClick={handleChatDomainMessage}
             />
           )}
         </div>

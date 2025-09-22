@@ -52,8 +52,7 @@ export default function Hero() {
         }}
       />
 
-      {/* Header */}
-      <Header />
+     
 
       {/* Main Content */}
       <main className="relative  flex items-center min-h-[calc(100vh-80px)] px-6 lg:px-12">

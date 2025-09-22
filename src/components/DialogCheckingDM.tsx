@@ -58,6 +58,7 @@ const DialogCheckingDM: React.FC<DialogCheckingDMProps> = ({
           conversation = await client?.conversations.newDm(inboxId || "");
         }
 
+        console.log('✅ Conversation created successfully, closing dialog');
         onOpenChange(false);
         // Trigger a custom event to notify parent
         window.dispatchEvent(new CustomEvent('conversationCreated', {
@@ -72,26 +73,52 @@ const DialogCheckingDM: React.FC<DialogCheckingDMProps> = ({
   useEffect(() => {
     if (userAddress && client) {
       (async () => {
+        console.log('🚀 Starting XMTP check for user:', userAddress);
         setIsLoading(true);
-        const identifier: Identifier = {
-          identifier: userAddress,
-          identifierKind: "Ethereum",
-        };
-        const canMessage = await client?.canMessage([identifier]);
-        if (canMessage?.get(userAddress.toLowerCase())) {
-          setCanSentMessage(true);
-          await initializedDm();
-        } else {
+        
+        // Add timeout to prevent infinite loading
+        const timeoutId = setTimeout(() => {
+          console.warn('XMTP check timed out after 10 seconds');
+          setIsLoading(false);
           setCanSentMessage(false);
+        }, 10000);
+        
+        try {
+          const identifier: Identifier = {
+            identifier: userAddress,
+            identifierKind: "Ethereum",
+          };
+          console.log('🔍 Checking if user can receive messages:', userAddress);
+          const canMessage = await client?.canMessage([identifier]);
+          const canReceiveMessages = canMessage?.get(userAddress.toLowerCase());
+          console.log('📡 Can message result:', canReceiveMessages);
+          
+          if (canReceiveMessages) {
+            setCanSentMessage(true);
+            console.log('✅ User can receive messages, creating conversation...');
+            await initializedDm();
+          } else {
+            console.log('❌ User cannot receive messages');
+            setCanSentMessage(false);
+          }
+        } catch (error) {
+          console.error('Error checking DM capability:', error);
+          setCanSentMessage(false);
+        } finally {
+          clearTimeout(timeoutId);
+          setIsLoading(false);
         }
-        setIsLoading(false);
       })();
+    } else if (userAddress && !client) {
+      console.warn('⚠️ User address provided but XMTP client not available');
+      setIsLoading(false);
+      setCanSentMessage(false);
     } else {
       setIsLoading(false);
     }
   }, [initializedDm, onOpenChange, userAddress, client]);
 
-  console.log('🔧 DialogCheckingDM render:', { open, userAddress, isLoading, canSentMessage });
+  console.log('🔧 DialogCheckingDM render:', { open, userAddress, isLoading, canSentMessage, hasClient: !!client });
 
   if (!open) return null;
 
