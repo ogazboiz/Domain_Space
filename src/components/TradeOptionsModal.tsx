@@ -50,7 +50,7 @@ export default function TradeOptionsModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Get user's own domains for selling
-  const { data: ownedDomainsData } = useOwnedNames(address, 20, []);
+  const { data: ownedDomainsData } = useOwnedNames(address || '', 20, []);
   const ownedDomains = useMemo(() => {
     return ownedDomainsData?.pages?.flatMap(page => page.items) || [];
   }, [ownedDomainsData]);
@@ -249,7 +249,7 @@ export default function TradeOptionsModal({
                   : 'bg-gray-800 border-gray-700 hover:bg-gray-700'
               }`}
             >
-              <DomainAvatar address={domain.name} className="w-8 h-8" size={32} />
+              <DomainAvatar domain={domain.name} className="w-8 h-8" size={32} />
               <div className="flex-1 text-left">
                 <div className="font-medium text-white">{domain.name}</div>
                 <div className="text-sm text-gray-400">{formatPrice(domain)}</div>

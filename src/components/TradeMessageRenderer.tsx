@@ -106,7 +106,7 @@ export default function TradeMessageRenderer({ content, isFromMe, timestamp }: T
       </div>
 
       <div className="flex items-center space-x-3 mb-4">
-        <DomainAvatar address={data.domainName} className="w-10 h-10" size={40} />
+        <DomainAvatar domain={data.domainName} className="w-10 h-10" size={40} />
         <div>
           <div className="font-medium text-white text-sm">{data.domainName}</div>
           <div className="text-purple-400 font-semibold">
@@ -145,7 +145,7 @@ export default function TradeMessageRenderer({ content, isFromMe, timestamp }: T
       </div>
 
       <div className="flex items-center space-x-3 mb-4">
-        <DomainAvatar address={data.domainName} className="w-10 h-10" size={40} />
+        <DomainAvatar domain={data.domainName} className="w-10 h-10" size={40} />
         <div>
           <div className="font-medium text-white text-sm">{data.domainName}</div>
           <div className="text-green-400 font-semibold">
@@ -184,7 +184,7 @@ export default function TradeMessageRenderer({ content, isFromMe, timestamp }: T
 
       {data.domainName && (
         <div className="flex items-center space-x-3 mb-4">
-          <DomainAvatar address={data.domainName} className="w-8 h-8" size={32} />
+          <DomainAvatar domain={data.domainName} className="w-8 h-8" size={32} />
           <div>
             <div className="font-medium text-white text-xs">{data.domainName}</div>
             {data.amount && (
