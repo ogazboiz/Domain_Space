@@ -11,6 +11,16 @@ import { toast } from 'sonner';
 
 // Import the existing domain query from your app
 import { useOwnedNames } from '@/data/use-doma';
+import { useOrderbook } from '@/hooks/use-orderbook';
+import { useWalletClient } from 'wagmi';
+import {
+  CreateOfferParams,
+  CreateListingParams,
+  OrderbookType,
+  viemToEthersSigner,
+  CurrencyToken,
+  OrderbookFee
+} from '@doma-protocol/orderbook-sdk';
 
 interface TradeOptionsModalProps {
   conversation: Dm | null;
@@ -21,11 +31,6 @@ interface TradeOptionsModalProps {
 }
 
 type TradeMode = 'options' | 'buy' | 'sell' | 'proposal';
-
-const currencies = [
-  { symbol: 'USDC', decimals: 6 },
-  { symbol: 'WETH', decimals: 18 }
-];
 
 const expirationOptions = [
   { label: '24 hours', value: '1' },
@@ -44,10 +49,15 @@ export default function TradeOptionsModal({
   const [mode, setMode] = useState<TradeMode>('options');
   const [selectedDomain, setSelectedDomain] = useState<Name | null>(null);
   const [offerAmount, setOfferAmount] = useState('');
-  const [selectedCurrency, setSelectedCurrency] = useState('USDC');
+  const [selectedCurrency, setSelectedCurrency] = useState<CurrencyToken | null>(null);
   const [expiration, setExpiration] = useState('7');
   const [proposalMessage, setProposalMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currencies, setCurrencies] = useState<CurrencyToken[]>([]);
+  const [fees, setFees] = useState<OrderbookFee[]>([]);
+
+  const { data: walletClient } = useWalletClient();
+  const { createOffer, createListing, getSupportedCurrencies, getOrderbookFee } = useOrderbook();
 
   // Get user's own domains for selling
   const { data: ownedDomainsData } = useOwnedNames(address || '', 20, []);
@@ -61,17 +71,77 @@ export default function TradeOptionsModal({
     return peerDomainsData?.pages?.flatMap(page => page.items) || [];
   }, [peerDomainsData]);
 
+  // Load currencies for selected domain
+  const loadCurrencies = useCallback(async (domain: Name) => {
+    try {
+      const token = domain.tokens?.[0];
+      if (!token) return;
+
+      const chainId = token.chain?.networkId || 'eip155:97476';
+
+      const supportedCurrencies = await getSupportedCurrencies({
+        chainId,
+        orderbook: OrderbookType.DOMA,
+        contractAddress: token.tokenAddress,
+      });
+
+      const filteredCurrencies = supportedCurrencies.currencies.filter(
+        (c: CurrencyToken) => c.contractAddress
+      );
+
+      setCurrencies(filteredCurrencies);
+
+      if (filteredCurrencies.length > 0 && !selectedCurrency) {
+        setSelectedCurrency(filteredCurrencies[0]);
+      }
+    } catch (error) {
+      console.error('Failed to load currencies:', error);
+      toast.error('Failed to load supported currencies');
+    }
+  }, [getSupportedCurrencies, selectedCurrency]);
+
+  // Load marketplace fees for selected domain
+  const loadFees = useCallback(async (domain: Name) => {
+    try {
+      const token = domain.tokens?.[0];
+      if (!token) return;
+
+      const chainId = token.chain?.networkId || 'eip155:97476';
+
+      const feesResult = await getOrderbookFee({
+        chainId,
+        contractAddress: token.tokenAddress,
+        orderbook: OrderbookType.DOMA,
+      });
+
+      setFees(feesResult.marketplaceFees || []);
+    } catch (error) {
+      console.error('Failed to load fees:', error);
+      toast.error('Failed to load marketplace fees');
+    }
+  }, [getOrderbookFee]);
+
   // Reset state when modal opens/closes
   useEffect(() => {
     if (isOpen) {
       setMode('options');
       setSelectedDomain(null);
       setOfferAmount('');
-      setSelectedCurrency('USDC');
+      setSelectedCurrency(null);
       setExpiration('7');
       setProposalMessage('');
+      setCurrencies([]);
+      setFees([]);
     }
   }, [isOpen]);
+
+  // Load currencies and fees when domain is selected
+  useEffect(() => {
+    if (selectedDomain) {
+      loadCurrencies(selectedDomain);
+      loadFees(selectedDomain);
+    }
+  }, [selectedDomain, loadCurrencies, loadFees]);
 
   const formatPrice = (domain: Name) => {
     const token = domain.tokens?.[0];
@@ -107,51 +177,153 @@ export default function TradeOptionsModal({
   };
 
   const handleBuyOffer = async () => {
-    if (!selectedDomain || !offerAmount) {
-      toast.error("Please select a domain and enter an offer amount");
+    if (!selectedDomain || !offerAmount || !walletClient) {
+      toast.error("Please select a domain, enter an offer amount, and connect your wallet");
+      return;
+    }
+
+    const token = selectedDomain.tokens?.[0];
+    if (!token) {
+      toast.error("Domain token data not found");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // Create offer message similar to frontend format
-      const offerMessage = `created_offer::${JSON.stringify({
-        domainName: selectedDomain.name,
-        amount: offerAmount,
-        currency: selectedCurrency,
-        expiration: expiration,
-        type: 'buy_offer'
-      })}`;
+      const chainId = token.chain?.networkId || 'eip155:97476';
 
-      await handleSendMessage(offerMessage);
+      if (!selectedCurrency) {
+        toast.error("Please select a currency");
+        return;
+      }
+
+      // Create real offer using SDK with proper currency address
+      const durationMs = Number(expiration) * 24 * 60 * 60 * 1000;
+      const params: CreateOfferParams = {
+        items: [
+          {
+            contract: token.tokenAddress,
+            tokenId: token.tokenId,
+            price: parseUnits(offerAmount, selectedCurrency.decimals).toString(),
+            currencyContractAddress: selectedCurrency.contractAddress!,
+            duration: durationMs,
+          },
+        ],
+        orderbook: OrderbookType.DOMA,
+        source: 'domain-space',
+        marketplaceFees: fees,
+      };
+
+      const result = await createOffer({
+        params,
+        chainId,
+        onProgress: (progress) => {
+          progress.forEach((step, index) => {
+            console.log(`Step ${index + 1}: ${step.description} - ${step.status}`);
+          });
+        },
+        signer: viemToEthersSigner(walletClient, chainId),
+        hasWethOffer: selectedCurrency.symbol?.toLowerCase() === 'weth',
+        currencies: currencies,
+      });
+
+      if (result?.orders?.[0]) {
+        // Send message with complete offer data including SDK fields
+        const offerMessage = `created_offer::${JSON.stringify({
+          domainName: selectedDomain.name,
+          amount: offerAmount,
+          currency: selectedCurrency.symbol,
+          expiration: expiration,
+          type: 'buy_offer',
+          orderId: result.orders[0].orderId,
+          tokenAddress: token.tokenAddress,
+          tokenId: token.tokenId,
+          chainId: chainId,
+          currencyAddress: selectedCurrency.contractAddress,
+          decimals: selectedCurrency.decimals
+        })}`;
+
+        await handleSendMessage(offerMessage);
+        toast.success("Offer created and sent successfully!");
+      }
     } catch (error) {
       console.error("Error creating offer:", error);
-      toast.error("Failed to create offer");
+      toast.error((error as Error)?.message || "Failed to create offer");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleSellListing = async () => {
-    if (!selectedDomain || !offerAmount) {
-      toast.error("Please select a domain and enter a price");
+    if (!selectedDomain || !offerAmount || !walletClient) {
+      toast.error("Please select a domain, enter a price, and connect your wallet");
+      return;
+    }
+
+    const token = selectedDomain.tokens?.[0];
+    if (!token) {
+      toast.error("Domain token data not found");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // Create listing message
-      const listingMessage = `created_listing::${JSON.stringify({
-        domainName: selectedDomain.name,
-        price: offerAmount,
-        currency: selectedCurrency,
-        expiration: expiration
-      })}`;
+      const chainId = token.chain?.networkId || 'eip155:97476';
 
-      await handleSendMessage(listingMessage);
+      if (!selectedCurrency) {
+        toast.error("Please select a currency");
+        return;
+      }
+
+      // Create real listing using SDK with proper currency address
+      const durationMs = Number(expiration) * 24 * 60 * 60 * 1000;
+      const params: CreateListingParams = {
+        items: [
+          {
+            contract: token.tokenAddress,
+            tokenId: token.tokenId,
+            price: parseUnits(offerAmount, selectedCurrency.decimals).toString(),
+            currencyContractAddress: selectedCurrency.contractAddress!,
+            duration: durationMs,
+          },
+        ],
+        orderbook: OrderbookType.DOMA,
+        source: 'domain-space',
+        marketplaceFees: fees,
+      };
+
+      const result = await createListing({
+        params,
+        chainId,
+        onProgress: (progress) => {
+          progress.forEach((step, index) => {
+            console.log(`Step ${index + 1}: ${step.description} - ${step.status}`);
+          });
+        },
+        signer: viemToEthersSigner(walletClient, chainId),
+      });
+
+      if (result?.orders?.[0]) {
+        // Send message with complete listing data including SDK fields
+        const listingMessage = `created_listing::${JSON.stringify({
+          domainName: selectedDomain.name,
+          price: offerAmount,
+          currency: selectedCurrency.symbol,
+          expiration: expiration,
+          orderId: result.orders[0].orderId,
+          tokenAddress: token.tokenAddress,
+          tokenId: token.tokenId,
+          chainId: chainId,
+          currencyAddress: selectedCurrency.contractAddress,
+          decimals: selectedCurrency.decimals
+        })}`;
+
+        await handleSendMessage(listingMessage);
+        toast.success("Listing created and sent successfully!");
+      }
     } catch (error) {
       console.error("Error creating listing:", error);
-      toast.error("Failed to create listing");
+      toast.error((error as Error)?.message || "Failed to create listing");
     } finally {
       setIsSubmitting(false);
     }
@@ -168,7 +340,7 @@ export default function TradeOptionsModal({
       const proposal = `proposal::${JSON.stringify({
         message: proposalMessage,
         amount: offerAmount || null,
-        currency: selectedCurrency,
+        currency: selectedCurrency?.symbol || null,
         domainName: selectedDomain?.name || null
       })}`;
 
@@ -185,18 +357,18 @@ export default function TradeOptionsModal({
 
   const renderOptionsScreen = () => (
     <>
-      <h2 className="text-xl font-bold text-white mb-2">Trade Options</h2>
-      <p className="text-gray-400 text-sm mb-6">Choose an option to trade domains</p>
+      <h2 className="text-xl font-bold text-white mb-2">Domain Exchange</h2>
+      <p className="text-gray-400 text-sm mb-6">Select how you&apos;d like to engage with domains</p>
 
       <div className="space-y-3">
         <button
           onClick={() => setMode('buy')}
           className="w-full p-4 bg-gray-800 border border-gray-700 rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-4"
         >
-          <div className="text-2xl">💰</div>
+          <div className="text-2xl">💎</div>
           <div className="flex-1 text-left">
-            <h3 className="font-semibold text-white">Purchase</h3>
-            <p className="text-sm text-gray-400">Make an offer on their domains</p>
+            <h3 className="font-semibold text-white">Submit Bid</h3>
+            <p className="text-sm text-gray-400">Place your offer on available domains</p>
           </div>
           <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -207,10 +379,10 @@ export default function TradeOptionsModal({
           onClick={() => setMode('sell')}
           className="w-full p-4 bg-gray-800 border border-gray-700 rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-4"
         >
-          <div className="text-2xl">🏷️</div>
+          <div className="text-2xl">🚀</div>
           <div className="flex-1 text-left">
-            <h3 className="font-semibold text-white">Sell</h3>
-            <p className="text-sm text-gray-400">Share a listing for your domains</p>
+            <h3 className="font-semibold text-white">Launch Sale</h3>
+            <p className="text-sm text-gray-400">Put your domains on the marketplace</p>
           </div>
           <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -221,10 +393,10 @@ export default function TradeOptionsModal({
           onClick={() => setMode('proposal')}
           className="w-full p-4 bg-gray-800 border border-gray-700 rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-4"
         >
-          <div className="text-2xl">📝</div>
+          <div className="text-2xl">💬</div>
           <div className="flex-1 text-left">
-            <h3 className="font-semibold text-white">Proposal</h3>
-            <p className="text-sm text-gray-400">Send a custom trade proposal</p>
+            <h3 className="font-semibold text-white">Negotiate</h3>
+            <p className="text-sm text-gray-400">Start a custom deal conversation</p>
           </div>
           <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -284,10 +456,14 @@ export default function TradeOptionsModal({
       <div>
         <label className="block text-sm font-medium text-white mb-2">Currency</label>
         <select
-          value={selectedCurrency}
-          onChange={(e) => setSelectedCurrency(e.target.value)}
+          value={selectedCurrency?.symbol || ''}
+          onChange={(e) => {
+            const currency = currencies.find(c => c.symbol === e.target.value);
+            setSelectedCurrency(currency || null);
+          }}
           className="w-full p-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
         >
+          <option value="">Select currency</option>
           {currencies.map(currency => (
             <option key={currency.symbol} value={currency.symbol}>
               {currency.symbol}
@@ -328,10 +504,10 @@ export default function TradeOptionsModal({
                 </svg>
               </button>
             )}
-            {mode === 'options' && <h2 className="text-xl font-bold text-white">Trade Options</h2>}
-            {mode === 'buy' && <h2 className="text-xl font-bold text-white">Make an Offer</h2>}
-            {mode === 'sell' && <h2 className="text-xl font-bold text-white">Share Listing</h2>}
-            {mode === 'proposal' && <h2 className="text-xl font-bold text-white">Send Proposal</h2>}
+            {mode === 'options' && <h2 className="text-xl font-bold text-white">Domain Exchange</h2>}
+            {mode === 'buy' && <h2 className="text-xl font-bold text-white">Submit Bid</h2>}
+            {mode === 'sell' && <h2 className="text-xl font-bold text-white">Launch Sale</h2>}
+            {mode === 'proposal' && <h2 className="text-xl font-bold text-white">Start Negotiation</h2>}
           </div>
           <button
             onClick={onClose}
@@ -356,7 +532,7 @@ export default function TradeOptionsModal({
                   disabled={isSubmitting || !selectedDomain || !offerAmount}
                   className="w-full py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-medium text-white transition-colors"
                 >
-                  {isSubmitting ? "Sending Offer..." : "Send Offer"}
+                  {isSubmitting ? "Submitting Bid..." : "Submit Bid"}
                 </button>
               </>
             )}
@@ -374,7 +550,7 @@ export default function TradeOptionsModal({
                   disabled={isSubmitting || !selectedDomain || !offerAmount}
                   className="w-full py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-medium text-white transition-colors"
                 >
-                  {isSubmitting ? "Sharing Listing..." : "Share Listing"}
+                  {isSubmitting ? "Launching Sale..." : "Launch Sale"}
                 </button>
               </>
             )}
@@ -407,7 +583,7 @@ export default function TradeOptionsModal({
               disabled={isSubmitting || !proposalMessage.trim()}
               className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-medium text-white transition-colors"
             >
-              {isSubmitting ? "Sending Proposal..." : "Send Proposal"}
+              {isSubmitting ? "Starting Negotiation..." : "Start Negotiation"}
             </button>
           </div>
         )}

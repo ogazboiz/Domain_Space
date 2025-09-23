@@ -25,45 +25,8 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
   const [client, setClient] = useState<Client | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [autoConnect, setAutoConnect] = useState(true);
-  const [isInitialized, setIsInitialized] = useState(false);
   const { address } = useAccount();
   const { signMessageAsync } = useSignMessage();
-
-  // Persistence keys
-  const XMTP_CLIENT_KEY = `xmtp_client_${address}`;
-  const XMTP_CONNECTION_STATE_KEY = `xmtp_connection_state_${address}`;
-
-  // Save connection state to sessionStorage for tab persistence
-  const saveConnectionState = useCallback((clientState: { isConnected: boolean; timestamp: number }) => {
-    if (address && typeof window !== 'undefined') {
-      try {
-        sessionStorage.setItem(XMTP_CONNECTION_STATE_KEY, JSON.stringify(clientState));
-      } catch (error) {
-        console.warn('Failed to save XMTP connection state:', error);
-      }
-    }
-  }, [address, XMTP_CONNECTION_STATE_KEY]);
-
-  // Load connection state from sessionStorage
-  const loadConnectionState = useCallback((): { isConnected: boolean; timestamp: number } | null => {
-    if (address && typeof window !== 'undefined') {
-      try {
-        const saved = sessionStorage.getItem(XMTP_CONNECTION_STATE_KEY);
-        if (saved) {
-          const state = JSON.parse(saved);
-          // Check if the state is recent (within 1 hour to avoid stale states)
-          const oneHour = 60 * 60 * 1000;
-          if (Date.now() - state.timestamp < oneHour) {
-            return state;
-          }
-        }
-      } catch (error) {
-        console.warn('Failed to load XMTP connection state:', error);
-      }
-    }
-    return null;
-  }, [address, XMTP_CONNECTION_STATE_KEY]);
 
   // Create signer using domainline's exact pattern
   const signer: Signer = useMemo(() => {
@@ -83,57 +46,31 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [address, signMessageAsync]);
 
-  // Core connection logic with persistence
-  const connectXmtpCore = useCallback(async (skipPersistenceCheck = false) => {
+  // Simplified connection logic like domainline
+  const connectXmtpCore = useCallback(async () => {
     if (!address) return;
 
-    // Check if we have a recent valid connection state and skip reconnection
-    if (!skipPersistenceCheck) {
-      const savedState = loadConnectionState();
-      if (savedState?.isConnected) {
-        console.log('⚡ Found recent XMTP connection state, attempting fast reconnect...');
-        try {
-          // Try to build existing client quickly without signing
-          const existingClient = await Client.build(
-            { identifier: address as string, identifierKind: "Ethereum" },
-            { env: "dev" }
-          );
-          setClient(existingClient);
-          console.log("✅ Fast reconnected to existing XMTP client");
-          return;
-        } catch (error) {
-          console.log('❌ Fast reconnect failed, proceeding with normal connection:', error);
-        }
-      }
-    }
-
-    console.log('🔄 Establishing new XMTP connection...');
+    console.log('🔄 Connecting to XMTP...');
 
     const canMessage = await Client.canMessage([
       { identifier: address as string, identifierKind: "Ethereum" },
     ]);
 
     if (canMessage.get(address as string)) {
-      // Try to build existing client (avoids re-signing)
+      // User is already registered - build existing client (reuses existing inbox)
       const existingClient = await Client.build(
         { identifier: address as string, identifierKind: "Ethereum" },
         { env: "dev" }
       );
       setClient(existingClient);
       console.log("✅ Built existing XMTP client");
-
-      // Save successful connection state
-      saveConnectionState({ isConnected: true, timestamp: Date.now() });
     } else {
-      // Create new client (requires signing)
+      // User not registered - create new client
       const newClient = await Client.create(signer, { env: "dev" });
       console.log("✅ Created new XMTP client");
       setClient(newClient);
-
-      // Save successful connection state
-      saveConnectionState({ isConnected: true, timestamp: Date.now() });
     }
-  }, [address, signer, loadConnectionState, saveConnectionState]);
+  }, [address, signer]);
 
   // Function to revoke installations using static method without client
   const revokeInstallations = useCallback(async () => {
@@ -412,16 +349,9 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
       }
       keysToRemove.forEach(key => localStorage.removeItem(key));
 
-      // Clear IndexedDB databases related to XMTP
-      if ('indexedDB' in window) {
-        // Note: This is a simplified approach. In a production app, you might want to be more specific
-        console.log('Cleared XMTP localStorage data');
-      }
-
       setClient(null);
       setError(null);
       setIsLoading(false);
-      setAutoConnect(false); // Stop auto-connecting after clearing data
 
       console.log('✅ Local XMTP data cleared. Please refresh the page and try connecting again.');
       alert('XMTP local data cleared. Please refresh the page and try connecting again.');
@@ -439,7 +369,7 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
   }, []);
 
-  // Connect to XMTP with static revocation on installation limit
+  // Simple connect to XMTP like domainline
   const connectXmtp = useCallback(async () => {
     if (!address) return;
     setIsLoading(true);
@@ -450,75 +380,27 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
     } catch (err) {
       console.error("Failed to connect to XMTP:", err);
       const errorMessage = err instanceof Error ? err.message : "Failed to connect to XMTP";
-
-      // Check if it's the installation limit error and use static revocation
-      if (errorMessage.includes('10/10 installations') || errorMessage.includes('already registered 10/10')) {
-        console.log('🔄 Installation limit reached, using static revocation...');
-        setError('Installation limit reached. Please use the manual reset option below.');
-        setAutoConnect(false); // Stop auto-connecting when at limit
-        setIsLoading(false);
-        // Don't auto-revoke, let user choose what to do
-      } else {
-        setError(errorMessage);
-        setIsLoading(false);
-      }
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
-  }, [address, connectXmtpCore, revokeInstallations]);
+  }, [address, connectXmtpCore]);
 
-  // Initialize connection state from persistence on mount
+  // Auto-connect when wallet connects (like domainline)
   useEffect(() => {
-    if (address && !isInitialized) {
-      console.log('🔄 Initializing XMTP context for address:', address);
-      setIsInitialized(true);
-
-      const savedState = loadConnectionState();
-      if (savedState?.isConnected) {
-        console.log('📂 Found saved connection state, attempting restoration...');
-        setIsLoading(true);
-        connectXmtpCore(false).catch((error) => {
-          console.error('Failed to restore connection:', error);
-          setError(error instanceof Error ? error.message : 'Failed to restore connection');
-        }).finally(() => {
-          setIsLoading(false);
-        });
-      }
+    if (address && !client) {
+      connectXmtp();
     }
-  }, [address, isInitialized, loadConnectionState, connectXmtpCore]);
+  }, [address, client, connectXmtp]);
 
-  // Auto-disconnect when wallet disconnects
+  // Auto-disconnect when wallet disconnects (like domainline)
   useEffect(() => {
     if (!address) {
-      console.log('🔌 Wallet disconnected, clearing XMTP client');
       setClient(null);
-      setIsInitialized(false);
       setError(null);
-
-      // Clear saved connection state
-      if (typeof window !== 'undefined') {
-        try {
-          Object.keys(sessionStorage).forEach(key => {
-            if (key.startsWith('xmtp_connection_state_')) {
-              sessionStorage.removeItem(key);
-            }
-          });
-        } catch (error) {
-          console.warn('Failed to clear connection states:', error);
-        }
-      }
     }
   }, [address]);
 
-  // Auto-connect when wallet connects (only if not already initialized)
-  useEffect(() => {
-    if (address && !client && !isLoading && autoConnect && isInitialized) {
-      // Only auto-connect if we don't have a saved state (fresh connection)
-      const savedState = loadConnectionState();
-      if (!savedState?.isConnected) {
-        console.log('🔄 Auto-connecting to XMTP (no saved state)...');
-        connectXmtp();
-      }
-    }
-  }, [address, client, isLoading, autoConnect, isInitialized, connectXmtp, loadConnectionState]);
 
   const isConnected = useMemo(() => {
     return Boolean(client && address);

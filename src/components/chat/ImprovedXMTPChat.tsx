@@ -1621,10 +1621,10 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                         console.log('Trade button clicked, peer:', activePeerAddress);
                         setShowTradeModal(true);
                       }}
-                      className="px-3 py-1.5 text-sm bg-green-600/20 border border-green-500/30 text-green-400 hover:bg-green-600/30 transition-colors rounded-lg"
-                      title="Trade domains"
+                      className="px-3 py-1.5 text-sm bg-purple-600/20 border border-purple-500/30 text-purple-400 hover:bg-purple-600/30 transition-colors rounded-lg"
+                      title="Exchange domains"
                     >
-                      Trade
+                      Exchange
                     </button>
                   )}
 
@@ -1692,11 +1692,25 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                           content={String(message.content)}
                           isFromMe={isFromMe}
                           timestamp={new Date(Number(message.sentAtNs) / 1_000_000)}
+                          onReply={() => setShowTradeModal(true)}
+                          onSendMessage={async (message: string) => {
+                            if (activeConversation) {
+                              try {
+                                await activeConversation.send(message);
+                              } catch (error) {
+                                console.error('Failed to send response message:', error);
+                                toast.error('Failed to send response message');
+                              }
+                            }
+                          }}
                         />
                         {/* Only show timestamp for regular messages */}
                         {!String(message.content).startsWith('created_offer::') &&
                          !String(message.content).startsWith('created_listing::') &&
-                         !String(message.content).startsWith('proposal::') && (
+                         !String(message.content).startsWith('proposal::') &&
+                         !String(message.content).startsWith('accepted_offer::') &&
+                         !String(message.content).startsWith('declined_offer::') &&
+                         !String(message.content).startsWith('purchased_listing::') && (
                           <div className={`text-xs mt-1 ${
                             isFromMe ? 'text-purple-200' : 'text-gray-400'
                           }`}>
