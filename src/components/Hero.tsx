@@ -55,21 +55,20 @@ export default function Hero() {
      
 
       {/* Main Content */}
-      <main className="relative  flex items-center min-h-[calc(100vh-80px)] px-6 lg:px-12">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center w-full max-w-7xl mx-auto">
+      <main className="relative flex items-center min-h-[calc(100vh-80px)] px-4 sm:px-6 lg:px-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-12 items-center w-full max-w-7xl mx-auto">
           {/* Left Content */}
-          <div className="space-y-8">
+          <div className="space-y-6 lg:space-y-8">
             {/* Purple glow behind headline */}
-            <div className="absolute -top-20 -left-20 w-40 h-40 bg-purple-500/30 rounded-full blur-3xl animate-pulse-glow"></div>
+            <div className="absolute -top-10 sm:-top-20 -left-10 sm:-left-20 w-40 h-40 bg-purple-500/30 rounded-full blur-3xl animate-pulse-glow"></div>
             
-            <div className="space-y-6">
+            <div className="space-y-4 lg:space-y-6">
               <h1 
-                className="text-white"
+                className="text-white text-4xl md:text-5xl lg:text-6xl xl:text-7xl"
                 style={{
                   fontFamily: 'var(--font-bitter), serif',
                   fontWeight: 800,
-                  fontSize: '72px',
-                  lineHeight: '92px',
+                  lineHeight: '1.1',
                   letterSpacing: '0%'
                 }}
               >
@@ -81,12 +80,11 @@ export default function Hero() {
               </h1>
               
               <p 
-                className=" text-white"
+                className="text-white text-sm sm:text-base md:text-lg lg:text-xl"
                 style={{
                   fontFamily: 'var(--font-space-mono), monospace',
                   fontWeight: 400,
-                  fontSize: '22px',
-                  lineHeight: '100%',
+                  lineHeight: '1.2',
                   letterSpacing: '0%'
                 }}
               >
@@ -98,7 +96,7 @@ export default function Hero() {
                   const marketplace = document.getElementById('marketplace-section');
                   if (marketplace) marketplace.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className="relative bg-white z-50 cursor-pointer hover:bg-gray-100 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+                className="relative bg-white z-40 cursor-pointer hover:bg-gray-100 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
                 style={{
                   width: '215px',
                   height: '66px',
@@ -127,11 +125,12 @@ export default function Hero() {
                   Get started
                 </span>
               </button>
+
             </div>
             
             {/* Decorative elements */}
-            <div className="absolute bottom-20 left-0 w-4 h-4 bg-blue-400 rounded-full animate-float"></div>
-            <div className="absolute top-40 -left-8 w-3 h-3 bg-pink-400 rounded-full animate-float" style={{animationDelay: '1s'}}></div>
+            <div className="absolute bottom-20 left-0 w-3 h-3 sm:w-4 sm:h-4 bg-blue-400 rounded-full animate-float"></div>
+            <div className="absolute top-20 sm:top-40 -left-4 sm:-left-8 w-2 h-2 sm:w-3 sm:h-3 bg-pink-400 rounded-full animate-float" style={{animationDelay: '1s'}}></div>
           </div>
 
           {/* Right Visual Area */}

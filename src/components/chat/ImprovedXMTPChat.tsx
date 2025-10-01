@@ -1052,10 +1052,10 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
   }
 
   return (
-    <div className="h-full flex bg-gray-900 text-white">
-      {/* Sidebar - Resizable */}
+    <div className="h-full w-full flex bg-gray-900 text-white min-h-0 overflow-hidden">
+      {/* Desktop Sidebar - Hidden on mobile */}
       <div 
-        className="border-r border-gray-700 flex flex-col relative"
+        className="border-r border-gray-700 flex-col relative hidden lg:flex"
         style={{ width: `${sidebarWidth}px` }}
       >
         {/* Connection Status */}
@@ -1389,8 +1389,422 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
         />
       </div>
 
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
+      {/* Mobile Layout - WhatsApp Style */}
+      <div className="lg:hidden flex flex-col h-full w-full min-h-0 flex-1 overflow-hidden">
+        {/* Mobile Header - Always visible */}
+        <div className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            {/* Back button */}
+            {activeConversation ? (
+              <button
+                onClick={() => setActiveConversation(null)}
+                className="p-2 hover:bg-gray-700 rounded-full transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            ) : null}
+            
+            {/* Title */}
+            <h1 className="text-white font-semibold text-lg">
+              {activeConversation ? 'Chat' : 'Messages'}
+            </h1>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex items-center space-x-2">
+            {activeConversation && (
+              <button
+                onClick={() => setShowTradeModal(true)}
+                className="p-2 hover:bg-gray-700 rounded-full transition-colors"
+                title="Exchange domains"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile Content Area */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {!activeConversation ? (
+            /* Mobile Conversation List */
+            <div className="flex-1 overflow-y-auto bg-gray-900">
+              {/* Search Bar */}
+              <div className="p-4 bg-gray-800">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search conversations..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery && setSearchQuery(e.target.value)}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 pl-10 text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
+                  />
+                  <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"/>
+                  </svg>
+                </div>
+              </div>
+
+              {/* New Conversation Form - Mobile */}
+              {showNewConversation && (
+                <div className="p-4 bg-gray-800 border-b border-gray-700">
+                  <div className="space-y-3">
+                    <h3 className="text-white font-semibold text-sm">Start New Chat</h3>
+                    <input
+                      type="text"
+                      placeholder="Enter wallet address..."
+                      value={newConversationAddress}
+                      onChange={(e) => setNewConversationAddress(e.target.value)}
+                      className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
+                    />
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={handleCreateConversation}
+                        disabled={isCreatingConversation}
+                        className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 px-4 py-3 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        {isCreatingConversation ? 'Creating...' : 'Start Chat'}
+                      </button>
+                      <button
+                        onClick={() => setShowNewConversation(false)}
+                        className="px-4 py-3 bg-gray-600 hover:bg-gray-500 rounded-lg text-sm transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Conversations List */}
+              <div className="flex-1">
+                {isLoadingConversations ? (
+                  <div className="p-4 space-y-3">
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className="flex items-center space-x-3 p-3">
+                        <div className="w-12 h-12 bg-gray-700 rounded-full animate-pulse"></div>
+                        <div className="flex-1">
+                          <div className="h-4 bg-gray-700 rounded animate-pulse mb-2"></div>
+                          <div className="h-3 bg-gray-700 rounded animate-pulse w-3/4"></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : filteredConversations.length === 0 ? (
+                  <div className="text-center py-20 px-4">
+                    <div className="text-6xl mb-4">💬</div>
+                    <h3 className="text-white text-lg font-semibold mb-2">No conversations yet</h3>
+                    <p className="text-gray-400 text-sm mb-6">Start a conversation to see your chats appear here</p>
+                    <button
+                      onClick={() => setShowNewConversation(true)}
+                      className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg text-sm transition-colors"
+                    >
+                      Start New Chat
+                    </button>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-700">
+                    {filteredConversations.map((conversation) => {
+                      const displayName = conversation.peerAddress !== 'Unknown' ?
+                        `${conversation.peerAddress.slice(0, 6)}...${conversation.peerAddress.slice(-4)}` :
+                        'XMTP Chat';
+
+                      const rawMessage = conversation.metadata.lastMessage || '';
+                      let displayMessage = rawMessage;
+
+                      if (rawMessage.includes('send_offer')) {
+                        displayMessage = '💌 Sent an offer';
+                      } else if (rawMessage.includes('accept_offer')) {
+                        displayMessage = '🎉 Accepted an offer';
+                      } else if (!rawMessage) {
+                        displayMessage = 'No messages yet';
+                      } else {
+                        displayMessage = rawMessage.length > 50
+                          ? rawMessage.substring(0, 50) + '...'
+                          : rawMessage;
+                      }
+
+                      const timeDisplay = conversation.metadata.lastMessageTime
+                        ? formatDistanceToNow(conversation.metadata.lastMessageTime, { addSuffix: true })
+                        : '';
+
+                      return (
+                        <button
+                          key={conversation.id}
+                          onClick={() => handleSelectConversation(conversation)}
+                          className="w-full flex items-center space-x-3 p-4 hover:bg-gray-800 active:bg-gray-700 transition-colors text-left touch-manipulation"
+                        >
+                          <ChatAvatar
+                            address={conversation.peerAddress !== 'Unknown' ? conversation.peerAddress : 'unknown'}
+                            className="w-12 h-12 flex-shrink-0"
+                            size={48}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <h3 className="text-white font-medium truncate">{displayName}</h3>
+                              {timeDisplay && (
+                                <span className="text-gray-500 text-xs flex-shrink-0 ml-2">{timeDisplay}</span>
+                              )}
+                            </div>
+                            <p className="text-gray-400 text-sm truncate">{displayMessage}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* Mobile Chat View */
+            <div className="flex flex-col h-full min-h-0 flex-1 overflow-hidden">
+              {/* Chat Header */}
+              <div className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between flex-shrink-0">
+                <div className="flex items-center space-x-3">
+                  <ChatAvatar
+                    address={activePeerAddress || 'unknown'}
+                    className="w-8 h-8"
+                    size={32}
+                  />
+                  <div>
+                    <h3 className="text-white font-medium text-sm">
+                      {activePeerAddress ?
+                        `${activePeerAddress.slice(0, 6)}...${activePeerAddress.slice(-4)}` :
+                        'XMTP Chat'
+                      }
+                    </h3>
+                    <p className="text-gray-400 text-xs">Secure messaging</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={handleConversationSync}
+                    disabled={isSyncingConversation}
+                    className="p-2 hover:bg-gray-700 rounded-full transition-colors disabled:opacity-50"
+                    title="Sync conversation"
+                  >
+                    {isSyncingConversation ? (
+                      <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Messages Area */}
+              <div className="flex-1 overflow-y-auto bg-gray-900 p-4 space-y-4 overscroll-contain min-h-0">
+                {loadingMessages ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="flex items-center space-x-3">
+                      <div className="animate-spin rounded-full h-6 w-6 border-2 border-purple-500/20 border-t-purple-500"></div>
+                      <span className="text-gray-400">Loading messages...</span>
+                    </div>
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="text-center py-20">
+                    <div className="text-gray-400 text-lg mb-2">No messages yet</div>
+                    <div className="text-gray-500 text-sm">Start the conversation below</div>
+                  </div>
+                ) : (
+                  messages.map((message) => {
+                    const isFromMe = message.senderInboxId === client?.inboxId
+                    return (
+                      <div
+                        key={message.id}
+                        className={`flex ${isFromMe ? 'justify-end' : 'justify-start'} mb-2 group`}
+                      >
+                        <div className="relative max-w-xs lg:max-w-md">
+                          {/* Message Bubble */}
+                          <div
+                            className={`${
+                              String(message.content).startsWith('created_offer::') ||
+                              String(message.content).startsWith('created_listing::') ||
+                              String(message.content).startsWith('proposal::')
+                                ? ''
+                                : `px-4 py-3 rounded-2xl max-w-xs sm:max-w-sm ${
+                                    isFromMe
+                                      ? 'bg-purple-600 text-white rounded-br-md ml-auto'
+                                      : 'bg-gray-700 text-gray-100 rounded-bl-md'
+                                  }`
+                            }`}
+                          >
+                            {/* Reaction Icon - Appears on hover */}
+                            {!String(message.content).startsWith('created_offer::') &&
+                             !String(message.content).startsWith('created_listing::') &&
+                             !String(message.content).startsWith('proposal::') &&
+                             !String(message.content).startsWith('accepted_offer::') &&
+                             !String(message.content).startsWith('declined_offer::') &&
+                             !String(message.content).startsWith('purchased_listing::') && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowEmojiPicker(showEmojiPicker === message.id ? null : message.id);
+                                }}
+                                className={`absolute ${
+                                  isFromMe ? '-left-8' : '-right-8'
+                                } top-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 hover:bg-gray-700 rounded-full p-1.5 shadow-lg`}
+                                title="React to message"
+                              >
+                                <Smile className="w-4 h-4 text-gray-300" />
+                              </button>
+                            )}
+
+                            {/* Emoji Picker Popup */}
+                            {showEmojiPicker === message.id && (
+                              <div className={`absolute ${isFromMe ? 'right-0' : 'left-0'} -top-14 bg-gray-800 border border-gray-600 rounded-2xl p-2 flex items-center space-x-1 shadow-xl z-50`}>
+                                {['👍', '❤️', '😂', '🎉', '😮', '😢', '🔥', '✨'].map((emoji) => (
+                                  <button
+                                    key={emoji}
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      try {
+                                        await addReaction(message.id, emoji);
+                                        toast.success(`Reacted with ${emoji}`);
+                                        setShowEmojiPicker(null);
+                                      } catch (error) {
+                                        toast.error('Failed to send reaction');
+                                      }
+                                    }}
+                                    className="h-10 w-10 p-0 text-xl hover:bg-gray-700 rounded-full transition-colors flex items-center justify-center"
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowEmojiPicker(null);
+                                  }}
+                                  className="h-8 w-8 text-gray-400 hover:text-white flex items-center justify-center ml-1"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            )}
+                            
+                            <TradeMessageRenderer
+                              content={String(message.content)}
+                              isFromMe={isFromMe}
+                              timestamp={new Date(Number(message.sentAtNs) / 1_000_000)}
+                              onReply={() => setShowTradeModal(true)}
+                              onSendMessage={async (message: string) => {
+                                if (activeConversation) {
+                                  try {
+                                    await activeConversation.send(message);
+                                  } catch (error) {
+                                    toast.error('Failed to send response message');
+                                  }
+                                }
+                              }}
+                            />
+                            
+                            {/* Timestamp */}
+                            {!String(message.content).startsWith('created_offer::') &&
+                             !String(message.content).startsWith('created_listing::') &&
+                             !String(message.content).startsWith('proposal::') &&
+                             !String(message.content).startsWith('accepted_offer::') &&
+                             !String(message.content).startsWith('declined_offer::') &&
+                             !String(message.content).startsWith('purchased_listing::') && (
+                              <div className={`text-xs mt-1 ${
+                                isFromMe ? 'text-purple-200' : 'text-gray-400'
+                              }`}>
+                                {formatDistanceToNow(new Date(Number(message.sentAtNs) / 1_000_000), { addSuffix: true })}
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Display reactions BELOW the message bubble */}
+                          {reactions.filter(r => r.messageId === message.id).length > 0 && (
+                            <div className={`flex gap-1 mt-1 flex-wrap ${isFromMe ? 'justify-end' : 'justify-start'}`}>
+                              {reactions
+                                .filter(r => r.messageId === message.id)
+                                .map((reaction, index) => {
+                                  const isMyReaction = reaction.from === client?.inboxId;
+                                  return (
+                                    <button
+                                      key={`${reaction.from}-${reaction.emoji}-${reaction.timestamp.getTime()}-${index}`}
+                                      onClick={() => isMyReaction && removeReaction(message.id, reaction.emoji)}
+                                      className={`px-2 py-0.5 rounded-full transition-all flex items-center gap-1 shadow-sm ${
+                                        isMyReaction 
+                                          ? 'bg-purple-600 border border-purple-500 hover:bg-purple-700 cursor-pointer' 
+                                          : 'bg-gray-800 border border-gray-600 cursor-default'
+                                      }`}
+                                      title={isMyReaction ? 'Click to remove your reaction' : 'Other person\'s reaction'}
+                                    >
+                                      <span className="text-base">{reaction.emoji}</span>
+                                    </button>
+                                  );
+                                })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Message Input - WhatsApp Style */}
+              <div className="bg-gray-800 border-t border-gray-700 p-4 pb-safe flex-shrink-0">
+                <div className="flex items-end space-x-3">
+                  <div className="flex-1 bg-gray-700 rounded-full px-4 py-2 flex items-center min-h-[44px]">
+                    <input
+                      type="text"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      placeholder="Type a message..."
+                      className="flex-1 bg-transparent text-white placeholder-gray-400 focus:outline-none text-sm"
+                      disabled={isSendingMessage}
+                      style={{ fontSize: '16px' }} // Prevents zoom on iOS
+                    />
+                  </div>
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={!newMessage.trim() || isSendingMessage}
+                    className="bg-purple-600 hover:bg-purple-700 active:bg-purple-800 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-full p-3 transition-colors touch-manipulation"
+                  >
+                    {isSendingMessage ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Floating Action Button - Mobile Only - Only show when not in conversation */}
+        {!activeConversation && (
+          <div className="lg:hidden fixed bottom-20 right-8 z-40">
+            <button
+              onClick={() => setShowNewConversation(true)}
+              className="w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 shadow-lg hover:shadow-xl flex items-center justify-center transition-all duration-200 transform hover:scale-105"
+              title="Start new conversation"
+            >
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Desktop Main Chat Area - Hidden on mobile */}
+      <div className="hidden lg:flex flex-1 flex-col min-h-0">
         {isCreatingConversation ? (
           <div className="flex-1 flex items-center justify-center text-center p-8">
             <div className="max-w-md">
@@ -1592,7 +2006,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 relative" onScroll={handleScroll}>
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 relative min-h-0" onScroll={handleScroll}>
               
               {/* Loading indicator */}
               {loadingMessages && (
@@ -1761,7 +2175,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
             </div>
 
             {/* Message Input */}
-            <div className="p-4 border-t border-gray-700">
+            <div className="p-4 border-t border-gray-700 flex-shrink-0">
               <div className="flex space-x-3">
                 <input
                   type="text"

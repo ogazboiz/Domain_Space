@@ -19,6 +19,11 @@ body {
   overflow-x: hidden;
 }
 
+/* Hide scrollbar for tab navigation */
+.tab-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 /* Custom Sonner Toast Styling to match app theme */
 [data-sonner-toaster] {
   --background: #111827; /* bg-gray-900 */

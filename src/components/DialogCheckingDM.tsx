@@ -108,7 +108,7 @@ const DialogCheckingDM: React.FC<DialogCheckingDMProps> = ({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center">
+    <div className="fixed inset-0 z-[99999] bg-black/50 backdrop-blur-sm flex items-center justify-center">
       <div className="bg-gray-900 rounded-lg p-6 text-center max-w-md mx-4">
         <div className="space-y-4">
           {isLoading && (

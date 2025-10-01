@@ -39,8 +39,8 @@ const TLD_COLORS: Record<string, string> = {
 const DomainGridSkeleton = ({ count = 6, isFullscreen = false }) => (
   <div className={`grid justify-items-center ${
     isFullscreen
-      ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3'
-      : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
+      ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-3'
+      : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4'
   }`}>
     {[...Array(count)].map((_, i) => (
       <div key={i} className="bg-gray-800 rounded-lg p-6 border border-white/20 animate-pulse w-full max-w-sm" style={{ height: '189px' }}>
@@ -83,10 +83,15 @@ const TabNavigation = ({ tabs, activeTab, setActiveTab }: {
   activeTab: string; 
   setActiveTab: (tab: string) => void; 
 }) => (
-  <div className="flex items-end">
+  <div 
+    className="w-full flex items-end space-x-1 sm:space-x-2 md:space-x-3 overflow-x-auto px-1 sm:px-2 md:px-0 tab-scroll"
+    style={{
+      scrollbarWidth: 'none', // Firefox
+      msOverflowStyle: 'none', // IE and Edge
+    }}
+  >
     {tabs.map((tab, index) => {
       const isActive = activeTab === tab.id;
-      const zIndex = tabs.length - index;
       
       return (
         <button 
@@ -94,13 +99,11 @@ const TabNavigation = ({ tabs, activeTab, setActiveTab }: {
           onClick={() => {
             setActiveTab(tab.id);
           }}
-          className={`flex items-center space-x-2 px-6 py-4 transition-all duration-200 rounded-t-lg relative -ml-2 hover:bg-gray-800/50 ${
+          className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 md:px-4 py-2 sm:py-3 transition-all duration-200 rounded-t-lg relative hover:bg-gray-800/50 whitespace-nowrap flex-shrink-0 ${
             isActive ? 'cursor-default' : 'cursor-pointer'
           }`}
           style={{
             backgroundColor: isActive ? '#191919' : '#191919',
-            boxShadow: '-5px 0px 10px 0px #00000080 inset',
-            zIndex: zIndex,
             ...(isActive && {
               border: '1px solid rgba(255, 255, 255, 0.2)',
               borderTop: '1px solid rgba(255, 255, 255, 0.4)',
@@ -110,11 +113,11 @@ const TabNavigation = ({ tabs, activeTab, setActiveTab }: {
             })
           }}
         >
-          <span className={`font-medium ${isActive ? 'text-white' : 'text-gray-400'}`}>
+          <span className={`font-medium text-xs sm:text-sm md:text-base ${isActive ? 'text-white' : 'text-gray-400'}`}>
             {tab.label}
           </span>
           {tab.count && (
-            <span className="bg-purple-500 text-white text-xs px-2 py-1 rounded-full">
+            <span className="bg-purple-500 text-white text-xs px-1 sm:px-1.5 md:px-2 py-0.5 sm:py-1 rounded-full">
               {tab.count}
             </span>
           )}
@@ -255,52 +258,59 @@ const DomainFilters = ({ statusFilter, setStatusFilter, priceFilter, setPriceFil
   tldFilter: string; 
   setTldFilter: (filter: string) => void; 
 }) => (
-  <div className="flex flex-wrap items-center gap-4 mb-6">
-    <div className="flex items-center space-x-4">
-      <span className="text-white font-medium">Filter By:</span>
-      <select
-        value={statusFilter}
-        onChange={(e) => setStatusFilter(e.target.value)}
-        className="bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-400 hover:border-gray-500 transition-colors"
-        style={{
-          backgroundColor: '#1F2937',
-          color: '#FFFFFF'
-        }}
-      >
-        <option value="all" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>All</option>
-        <option value="listed" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>Listed</option>
-        <option value="unlisted" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>Unlisted</option>
-      </select>
-      <select
-        value={priceFilter}
-        onChange={(e) => setPriceFilter(e.target.value)}
-        className="bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-400 hover:border-gray-500 transition-colors"
-        style={{
-          backgroundColor: '#1F2937',
-          color: '#FFFFFF'
-        }}
-      >
-        <option value="all" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>All</option>
-        <option value="price-low" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>Price: Low to High</option>
-        <option value="price-high" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>Price: High to Low</option>
-      </select>
-      <select
-        value={tldFilter}
-        onChange={(e) => setTldFilter(e.target.value)}
-        className="bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-400 hover:border-gray-500 transition-colors"
-        style={{
-          backgroundColor: '#1F2937',
-          color: '#FFFFFF'
-        }}
-      >
-        <option value="all" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>All TLDs</option>
-        <option value="com" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>.com</option>
-        <option value="ai" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>.ai</option>
-        <option value="io" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>.io</option>
-        <option value="ape" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>.ape</option>
-        <option value="shib" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>.shib</option>
-        <option value="football" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>.football</option>
-      </select>
+  <div className="mb-6">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+      <div className="flex items-center gap-2">
+        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+        </svg>
+        <span className="text-white font-medium text-sm sm:text-base hidden sm:inline">Filter By:</span>
+      </div>
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 flex-1">
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-400 hover:border-gray-500 transition-colors w-full sm:w-auto"
+          style={{
+            backgroundColor: '#1F2937',
+            color: '#FFFFFF'
+          }}
+        >
+          <option value="all" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>All</option>
+          <option value="listed" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>Listed</option>
+          <option value="unlisted" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>Unlisted</option>
+        </select>
+        <select
+          value={priceFilter}
+          onChange={(e) => setPriceFilter(e.target.value)}
+          className="bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-400 hover:border-gray-500 transition-colors w-full sm:w-auto"
+          style={{
+            backgroundColor: '#1F2937',
+            color: '#FFFFFF'
+          }}
+        >
+          <option value="all" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>All</option>
+          <option value="price-low" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>Price: Low to High</option>
+          <option value="price-high" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>Price: High to Low</option>
+        </select>
+        <select
+          value={tldFilter}
+          onChange={(e) => setTldFilter(e.target.value)}
+          className="bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-400 hover:border-gray-500 transition-colors w-full sm:w-auto"
+          style={{
+            backgroundColor: '#1F2937',
+            color: '#FFFFFF'
+          }}
+        >
+          <option value="all" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>All TLDs</option>
+          <option value="com" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>.com</option>
+          <option value="ai" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>.ai</option>
+          <option value="io" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>.io</option>
+          <option value="ape" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>.ape</option>
+          <option value="shib" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>.shib</option>
+          <option value="football" style={{ backgroundColor: '#1F2937', color: '#FFFFFF' }}>.football</option>
+        </select>
+      </div>
     </div>
   </div>
 );
@@ -472,8 +482,8 @@ const DomainGrid = ({
 }) => (
   <div className={`grid justify-items-center ${
     isFullscreen
-      ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3'
-      : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
+      ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-3'
+      : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4'
   }`}>
     {domains.map((domain) => (
       <DomainCard
@@ -1133,7 +1143,7 @@ export default function DomainMarketplace() {
         }
 
         return (
-          <div className="space-y-8">
+          <div className="space-y-4 sm:space-y-6 lg:space-y-8">
             {/* Header with Back Button */}
             <div className="flex items-center justify-between">
               <button
@@ -1141,26 +1151,27 @@ export default function DomainMarketplace() {
                   setSelectedDomain(null);
                   setActiveTab('browse');
                 }}
-                className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors"
+                className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors text-sm sm:text-base"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
-                <span>Back to Browse</span>
+                <span className="hidden sm:inline">Back to Browse</span>
+                <span className="sm:hidden">Back</span>
               </button>
 
               {/* Status Badge */}
               <div className="flex items-center space-x-2">
                 {isListed ? (
-                  <span className="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-sm font-medium">
+                  <span className="bg-green-500/20 text-green-400 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
                     🟢 Listed
                   </span>
                 ) : isOwned ? (
-                  <span className="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-sm font-medium">
+                  <span className="bg-yellow-500/20 text-yellow-400 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
                     🟡 Owned
                   </span>
                 ) : (
-                  <span className="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-sm font-medium">
+                  <span className="bg-blue-500/20 text-blue-400 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
                     🔵 Available
                   </span>
                 )}
@@ -1168,11 +1179,11 @@ export default function DomainMarketplace() {
             </div>
 
             {/* Domain Details Grid */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
               {/* Main Content - Left Side */}
-              <div className="xl:col-span-2 space-y-6">
+              <div className="lg:col-span-2 space-y-4 sm:space-y-6">
                 {/* Domain Header */}
-                <div className="flex items-center space-x-4 p-6 rounded-2xl" style={{
+                <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 p-4 sm:p-6 rounded-2xl" style={{
                   backgroundColor: '#121212',
                   border: '1px solid',
                   borderImage: 'radial-gradient(88.13% 63.48% at 26.09% 25.74%, #FFFFFF 0%, rgba(255, 255, 255, 0.905829) 8.52%, rgba(255, 255, 255, 0.801323) 40.45%, rgba(255, 255, 255, 0.595409) 40.46%, rgba(255, 255, 255, 0.29) 96.15%, rgba(255, 255, 255, 0) 100%, rgba(255, 255, 255, 0) 100%), linear-gradient(180deg, rgba(0, 0, 0, 0.2) 18.72%, rgba(255, 30, 0, 0.2) 43.64%, rgba(255, 255, 255, 0.2) 67.21%)',
@@ -1180,15 +1191,15 @@ export default function DomainMarketplace() {
                 }}>
                   <DomainAvatar
                     domain={domainToShow.name}
-                    className="w-16 h-16"
-                    size={64}
+                    className="w-12 h-12 sm:w-16 sm:h-16 flex-shrink-0"
+                    size={48}
                   />
-                  <div>
-                    <h1 className="text-4xl font-bold font-space-mono">
+                  <div className="min-w-0 flex-1">
+                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-space-mono break-all">
                       <span className="text-white">{domainToShow.name.split('.')[0]}</span>
                       <span style={{ color: getTldColor(tld) }}>.{tld}</span>
                     </h1>
-                    <p className="text-gray-400 text-lg mt-2">
+                    <p className="text-gray-400 text-sm sm:text-base lg:text-lg mt-1 sm:mt-2">
                       {isOwned ? 'Owned Domain' : 'Available Domain'}
                     </p>
                   </div>
@@ -1196,13 +1207,13 @@ export default function DomainMarketplace() {
 
                 {/* Price & Actions Card */}
                 {isListed && (
-                  <div className="p-6 rounded-2xl" style={{
+                  <div className="p-4 sm:p-6 rounded-2xl" style={{
                     backgroundColor: '#121212',
                     border: '1px solid rgba(255, 255, 255, 0.1)'
                   }}>
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+                    <div className="flex flex-col space-y-4">
                       <div>
-                        <div className="text-3xl font-bold text-white">
+                        <div className="text-2xl sm:text-3xl font-bold text-white">
                           {formatPrice(listing.price, listing.currency.decimals)} {listing.currency.symbol}
                         </div>
                         <div className="text-sm text-gray-400 mt-1">
@@ -1215,7 +1226,7 @@ export default function DomainMarketplace() {
 
                       {selectedDomainFromOwned ? (
                         // Actions for owned listed domains
-                        <div className="flex flex-col sm:flex-row gap-3">
+                        <div className="space-y-3">
                           <div className="bg-green-900/20 border border-green-700 rounded-lg p-3">
                             <div className="flex items-center space-x-2">
                               <span className="text-green-400">✓</span>
@@ -1224,9 +1235,9 @@ export default function DomainMarketplace() {
                           </div>
                           <button
                             onClick={() => handleCancelListing(domainToShow)}
-                            className="flex items-center justify-center space-x-2 bg-red-600 text-white py-3 px-6 rounded-xl hover:bg-red-700 transition-all transform hover:scale-105"
+                            className="w-full flex items-center justify-center space-x-2 bg-red-600 text-white py-3 px-4 sm:px-6 rounded-xl hover:bg-red-700 transition-all transform hover:scale-105 text-sm sm:text-base"
                           >
-                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
                             </svg>
                             <span>Cancel Listing</span>
@@ -1234,13 +1245,13 @@ export default function DomainMarketplace() {
                         </div>
                       ) : (
                         // Actions for non-owned listed domains
-                        <div className="flex flex-col sm:flex-row gap-3">
+                        <div className="space-y-3">
                           {isOwned && (
                             <button
                               onClick={() => handleMessage(domainToShow)}
-                              className="flex items-center justify-center space-x-2 bg-green-600 text-white py-3 px-6 rounded-xl hover:bg-green-700 transition-all transform hover:scale-105"
+                              className="w-full flex items-center justify-center space-x-2 bg-green-600 text-white py-3 px-4 sm:px-6 rounded-xl hover:bg-green-700 transition-all transform hover:scale-105 text-sm sm:text-base"
                             >
-                              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20">
                                 <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
                                 <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
                               </svg>
@@ -1248,25 +1259,27 @@ export default function DomainMarketplace() {
                             </button>
                           )}
 
-                          <button
-                            onClick={() => handleBuy(domainToShow)}
-                            className="flex items-center justify-center space-x-2 bg-purple-600 text-white py-3 px-6 rounded-xl hover:bg-purple-700 transition-all transform hover:scale-105"
-                          >
-                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                              <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"/>
-                            </svg>
-                            <span>Buy Now</span>
-                          </button>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <button
+                              onClick={() => handleBuy(domainToShow)}
+                              className="flex items-center justify-center space-x-2 bg-purple-600 text-white py-3 px-4 sm:px-6 rounded-xl hover:bg-purple-700 transition-all transform hover:scale-105 text-sm sm:text-base"
+                            >
+                              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"/>
+                              </svg>
+                              <span>Buy Now</span>
+                            </button>
 
-                          <button
-                            onClick={() => handleOffer(domainToShow)}
-                            className="flex items-center justify-center space-x-2 border border-purple-400 text-purple-400 py-3 px-6 rounded-xl hover:bg-purple-400/10 transition-all transform hover:scale-105"
-                          >
-                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                              <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"/>
-                            </svg>
-                            <span>Make Offer</span>
-                          </button>
+                            <button
+                              onClick={() => handleOffer(domainToShow)}
+                              className="flex items-center justify-center space-x-2 border border-purple-400 text-purple-400 py-3 px-4 sm:px-6 rounded-xl hover:bg-purple-400/10 transition-all transform hover:scale-105 text-sm sm:text-base"
+                            >
+                              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"/>
+                              </svg>
+                              <span>Make Offer</span>
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1274,28 +1287,28 @@ export default function DomainMarketplace() {
                 )}
 
                 {/* Domain Information */}
-                <div className="p-6 rounded-xl" style={{
+                <div className="p-4 sm:p-6 rounded-xl" style={{
                   backgroundColor: '#121212',
                   border: '1px solid rgba(255, 255, 255, 0.1)'
                 }}>
-                  <h3 className="text-xl font-bold mb-4">Domain Information</h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center py-2 border-b border-gray-700/50">
-                      <span className="text-gray-400">Domain Name</span>
-                      <span className="font-medium text-white">{domainToShow.name}</span>
+                  <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Domain Information</h3>
+                  <div className="space-y-2 sm:space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b border-gray-700/50 space-y-1 sm:space-y-0">
+                      <span className="text-gray-400 text-sm sm:text-base">Domain Name</span>
+                      <span className="font-medium text-white text-sm sm:text-base break-all">{domainToShow.name}</span>
                     </div>
                     {isOwned && (
-                      <div className="flex justify-between items-center py-2 border-b border-gray-700/50">
-                        <span className="text-gray-400">Owner</span>
-                        <span className="font-medium text-white font-mono text-sm">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b border-gray-700/50 space-y-1 sm:space-y-0">
+                        <span className="text-gray-400 text-sm sm:text-base">Owner</span>
+                        <span className="font-medium text-white font-mono text-xs sm:text-sm">
                           {domainToShow.claimedBy?.split(':')[2]?.substring(0, 6)}...{domainToShow.claimedBy?.split(':')[2]?.slice(-4)}
                         </span>
                       </div>
                     )}
                     {domainToShow.expiresAt && (
-                      <div className="flex justify-between items-center py-2 border-b border-gray-700/50">
-                        <span className="text-gray-400">Expires At</span>
-                        <span className="font-medium text-white">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b border-gray-700/50 space-y-1 sm:space-y-0">
+                        <span className="text-gray-400 text-sm sm:text-base">Expires At</span>
+                        <span className="font-medium text-white text-sm sm:text-base">
                           {(() => {
                             const now = new Date();
                             const expires = new Date(domainToShow.expiresAt);
@@ -1514,21 +1527,21 @@ export default function DomainMarketplace() {
                                 : offer.offererAddress;
                               
                               return (
-                                <div key={offer.id} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg border border-gray-700/50">
-                                  <div className="flex items-center space-x-3">
+                              <div key={offer.id} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg border border-gray-700/50">
+                                <div className="flex items-center space-x-3">
                                     <ChatAvatar 
                                       address={offerAddress}
                                       size={32}
                                     />
-                                    <div>
-                                      <div className="text-white text-sm font-medium">
-                                        {formatPrice(offer.price, offer.currency.decimals)} {offer.currency.symbol}
-                                      </div>
-                                      <div className="text-gray-400 text-xs">
+                                  <div>
+                                    <div className="text-white text-sm font-medium">
+                                      {formatPrice(offer.price, offer.currency.decimals)} {offer.currency.symbol}
+                                    </div>
+                                    <div className="text-gray-400 text-xs">
                                         {offerAddress.slice(0, 6)}...{offerAddress.slice(-4)}
-                                      </div>
                                     </div>
                                   </div>
+                                </div>
                                 <div className="text-right">
                                   <div className="text-gray-400 text-xs">
                                     {(() => {
@@ -1824,9 +1837,9 @@ export default function DomainMarketplace() {
         );
       case "browse":
         return (
-          <div className="space-y-6">
+          <div className="space-y-6 min-h-0">
             {/* Browse Domains Results */}
-            <div className="space-y-4">
+            <div className="space-y-4 min-h-0">
               {browseError ? (
                 <div className="text-center py-20">
                   <div className="text-6xl mb-4">⚠️</div>
@@ -1907,59 +1920,59 @@ export default function DomainMarketplace() {
             ) : (
               <div className="space-y-8">
                 {/* Modern Portfolio Overview */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                  <div className="bg-gradient-to-br from-purple-900/20 to-purple-600/10 rounded-2xl p-6 border border-purple-500/20">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center">
-                        <span className="text-2xl">🏠</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+                  <div className="bg-gradient-to-br from-purple-900/20 to-purple-600/10 rounded-2xl p-4 sm:p-6 border border-purple-500/20">
+                    <div className="flex items-center justify-between mb-3 sm:mb-4">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-500/20 rounded-xl flex items-center justify-center">
+                        <span className="text-xl sm:text-2xl">🏠</span>
                       </div>
-                      <span className="text-2xl font-bold text-purple-400">{ownedDomainsCount}</span>
+                      <span className="text-xl sm:text-2xl font-bold text-purple-400">{ownedDomainsCount}</span>
                     </div>
-                    <h3 className="text-white font-semibold text-lg mb-1">Owned Domains</h3>
-                    <p className="text-gray-400 text-sm">Your digital real estate</p>
+                    <h3 className="text-white font-semibold text-base sm:text-lg mb-1">Owned Domains</h3>
+                    <p className="text-gray-400 text-xs sm:text-sm">Your digital real estate</p>
                   </div>
                   
-                  <div className="bg-gradient-to-br from-blue-900/20 to-blue-600/10 rounded-2xl p-6 border border-blue-500/20">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
-                        <span className="text-2xl">👀</span>
+                  <div className="bg-gradient-to-br from-blue-900/20 to-blue-600/10 rounded-2xl p-4 sm:p-6 border border-blue-500/20">
+                    <div className="flex items-center justify-between mb-3 sm:mb-4">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                        <span className="text-xl sm:text-2xl">👀</span>
                       </div>
-                      <span className="text-2xl font-bold text-blue-400">{watchedDomainsCount}</span>
+                      <span className="text-xl sm:text-2xl font-bold text-blue-400">{watchedDomainsCount}</span>
                     </div>
-                    <h3 className="text-white font-semibold text-lg mb-1">Watchlist</h3>
-                    <p className="text-gray-400 text-sm">Domains you&apos;re tracking</p>
+                    <h3 className="text-white font-semibold text-base sm:text-lg mb-1">Watchlist</h3>
+                    <p className="text-gray-400 text-xs sm:text-sm">Domains you&apos;re tracking</p>
                   </div>
                   
-                  <div className="bg-gradient-to-br from-green-900/20 to-green-600/10 rounded-2xl p-6 border border-green-500/20">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
-                        <span className="text-2xl">📈</span>
+                  <div className="bg-gradient-to-br from-green-900/20 to-green-600/10 rounded-2xl p-4 sm:p-6 border border-green-500/20 sm:col-span-2 lg:col-span-1">
+                    <div className="flex items-center justify-between mb-3 sm:mb-4">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
+                        <span className="text-xl sm:text-2xl">📈</span>
                       </div>
-                      <span className="text-2xl font-bold text-green-400">
+                      <span className="text-lg sm:text-2xl font-bold text-green-400">
                         ${portfolioValue >= 1000 ?
                           (portfolioValue / 1000).toFixed(3) + 'K' :
                           portfolioValue.toFixed(2)
                         }
                       </span>
                     </div>
-                    <h3 className="text-white font-semibold text-lg mb-1">Portfolio Value</h3>
-                    <p className="text-gray-400 text-sm">Total estimated value</p>
+                    <h3 className="text-white font-semibold text-base sm:text-lg mb-1">Portfolio Value</h3>
+                    <p className="text-gray-400 text-xs sm:text-sm">Total estimated value</p>
                   </div>
                 </div>
 
                 {/* Modern Tab Navigation */}
-                <div className="flex space-x-2 bg-gray-800/50 p-2 rounded-2xl">
+                <div className="flex space-x-1 sm:space-x-2 bg-gray-800/50 p-1 sm:p-2 rounded-2xl">
                   <button
                     onClick={() => setMyspaceTab("owned")}
-                    className={`flex-1 flex items-center justify-center space-x-3 py-4 px-6 rounded-xl transition-all duration-300 ${
+                    className={`flex-1 flex items-center justify-center space-x-1 sm:space-x-3 py-3 sm:py-4 px-3 sm:px-6 rounded-xl transition-all duration-300 ${
                       myspaceTab === "owned" 
                         ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg' 
                         : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
                     }`}
                   >
-                    <span className="text-lg">🏠</span>
-                    <span className="font-medium">My Domains</span>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    <span className="text-base sm:text-lg">🏠</span>
+                    <span className="font-medium text-sm sm:text-base hidden sm:inline">My Domains</span>
+                    <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium ${
                       myspaceTab === "owned" 
                         ? 'bg-white/20 text-white' 
                         : 'bg-purple-500/20 text-purple-400'
@@ -1969,15 +1982,15 @@ export default function DomainMarketplace() {
                   </button>
                   <button
                     onClick={() => setMyspaceTab("watchlist")}
-                    className={`flex-1 flex items-center justify-center space-x-3 py-4 px-6 rounded-xl transition-all duration-300 ${
+                    className={`flex-1 flex items-center justify-center space-x-1 sm:space-x-3 py-3 sm:py-4 px-3 sm:px-6 rounded-xl transition-all duration-300 ${
                       myspaceTab === "watchlist" 
                         ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg' 
                         : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
                     }`}
                   >
-                    <span className="text-lg">👀</span>
-                    <span className="font-medium">Watchlist</span>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    <span className="text-base sm:text-lg">👀</span>
+                    <span className="font-medium text-sm sm:text-base hidden sm:inline">Watchlist</span>
+                    <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium ${
                       myspaceTab === "watchlist" 
                         ? 'bg-white/20 text-white' 
                         : 'bg-blue-500/20 text-blue-400'
@@ -1991,12 +2004,12 @@ export default function DomainMarketplace() {
                 {myspaceTab === "owned" ? (
                   <div className="space-y-6">
                     {/* Modern Filters */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-gray-800/30 rounded-xl border border-gray-700/50">
-                      <div className="flex items-center space-x-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-800/30 rounded-xl border border-gray-700/50">
+                      <div className="flex items-center space-x-2 sm:space-x-4">
                         <select
                           value={selectedCategory}
                           onChange={(e) => setSelectedCategory(e.target.value)}
-                          className="bg-gray-900/50 border border-gray-600 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 transition-all"
+                          className="bg-gray-900/50 border border-gray-600 rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-white text-xs sm:text-sm focus:outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 transition-all w-full sm:w-auto"
                         >
                           <option value="all">All TLDs</option>
                           <option value="com">com</option>
@@ -2006,8 +2019,8 @@ export default function DomainMarketplace() {
                         </select>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <span className="text-sm text-gray-400">Total:</span>
-                        <span className="text-sm font-medium text-purple-400">
+                        <span className="text-xs sm:text-sm text-gray-400">Total:</span>
+                        <span className="text-xs sm:text-sm font-medium text-purple-400">
                           {ownedDomainsCount} domains
                         </span>
                       </div>
@@ -2017,13 +2030,13 @@ export default function DomainMarketplace() {
                     {isLoadingOwned ? (
                       <DomainGridSkeleton count={6} isFullscreen={isFullscreenMode} />
                     ) : ownedDomainsCount === 0 ? (
-                      <div className="text-center py-16 bg-gray-800/20 rounded-2xl border border-gray-700/50">
-                        <div className="text-8xl mb-6">🏠</div>
-                        <h3 className="text-2xl font-bold text-white mb-3">Your Domain Portfolio is Empty</h3>
-                        <p className="text-gray-400 mb-8 text-lg max-w-md mx-auto">Start building your digital real estate empire by acquiring your first domain!</p>
+                      <div className="text-center py-12 sm:py-16 bg-gray-800/20 rounded-2xl border border-gray-700/50 px-4">
+                        <div className="text-6xl sm:text-8xl mb-4 sm:mb-6">🏠</div>
+                        <h3 className="text-xl sm:text-2xl font-bold text-white mb-2 sm:mb-3">Your Domain Portfolio is Empty</h3>
+                        <p className="text-gray-400 mb-6 sm:mb-8 text-sm sm:text-lg max-w-md mx-auto">Start building your digital real estate empire by acquiring your first domain!</p>
                         <button
                           onClick={() => setActiveTab("browse")}
-                          className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-4 rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all duration-300 font-medium text-lg shadow-lg hover:shadow-purple-500/25"
+                          className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all duration-300 font-medium text-sm sm:text-lg shadow-lg hover:shadow-purple-500/25"
                         >
                           🚀 Browse Domains
                         </button>
@@ -2056,17 +2069,18 @@ export default function DomainMarketplace() {
                 ) : myspaceTab === "watchlist" ? (
                   <div className="space-y-6">
                     {/* Modern Watchlist Header */}
-                    <div className="flex items-center justify-between p-6 bg-gradient-to-r from-blue-900/20 to-blue-600/10 rounded-2xl border border-blue-500/20">
-                      <div>
-                        <h3 className="text-2xl font-bold text-white mb-2">👀 Watchlist</h3>
-                        <p className="text-gray-400">Monitor domains you&apos;re interested in and track their availability</p>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-gradient-to-r from-blue-900/20 to-blue-600/10 rounded-2xl border border-blue-500/20">
+                      <div className="flex-1">
+                        <h3 className="text-xl sm:text-2xl font-bold text-white mb-2">👀 Watchlist</h3>
+                        <p className="text-gray-400 text-sm sm:text-base">Monitor domains you&apos;re interested in and track their availability</p>
                       </div>
                       <button
                         onClick={() => setActiveTab("browse")}
-                        className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-300 font-medium flex items-center gap-2 shadow-lg hover:shadow-blue-500/25"
+                        className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-300 font-medium flex items-center justify-center gap-2 shadow-lg hover:shadow-blue-500/25 text-sm sm:text-base"
                       >
-                        <span className="text-lg">➕</span>
-                        Add to Watchlist
+                        <span className="text-base sm:text-lg">➕</span>
+                        <span className="hidden sm:inline">Add to Watchlist</span>
+                        <span className="sm:hidden">Add</span>
                       </button>
                     </div>
 
@@ -2074,13 +2088,13 @@ export default function DomainMarketplace() {
                     {isLoadingWatched ? (
                       <DomainGridSkeleton count={6} isFullscreen={isFullscreenMode} />
                     ) : watchedDomainsCount === 0 ? (
-                      <div className="text-center py-16 bg-gray-800/20 rounded-2xl border border-gray-700/50">
-                        <div className="text-8xl mb-6">👀</div>
-                        <h3 className="text-2xl font-bold text-white mb-3">Your Watchlist is Empty</h3>
-                        <p className="text-gray-400 mb-8 text-lg max-w-md mx-auto">Start watching domains to track their availability, price changes, and never miss an opportunity!</p>
+                      <div className="text-center py-12 sm:py-16 bg-gray-800/20 rounded-2xl border border-gray-700/50 px-4">
+                        <div className="text-6xl sm:text-8xl mb-4 sm:mb-6">👀</div>
+                        <h3 className="text-xl sm:text-2xl font-bold text-white mb-2 sm:mb-3">Your Watchlist is Empty</h3>
+                        <p className="text-gray-400 mb-6 sm:mb-8 text-sm sm:text-lg max-w-md mx-auto">Start watching domains to track their availability, price changes, and never miss an opportunity!</p>
                         <button
                           onClick={() => setActiveTab("browse")}
-                          className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium text-lg shadow-lg hover:shadow-blue-500/25"
+                          className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-medium text-sm sm:text-lg shadow-lg hover:shadow-blue-500/25"
                         >
                           🔍 Browse Domains
                         </button>
@@ -2116,7 +2130,7 @@ export default function DomainMarketplace() {
         );
       case "chat":
         return (
-          <div className="h-full w-full">
+          <div className="h-[600px] sm:h-[700px] lg:h-[800px] w-full flex overflow-hidden">
             <ImprovedXMTPChat
               defaultPeerAddress={selectedUserAddress}
               searchQuery={chatSearchQuery}
@@ -2260,7 +2274,7 @@ export default function DomainMarketplace() {
     <>
       <section
         id="marketplace-section"
-        className="relative py-20 px-6 lg:px-12"
+        className="relative py-8 px-3 sm:py-12 sm:px-4 md:py-16 md:px-6 lg:py-20 lg:px-12"
       >
       {/* Background */}
       <div className="absolute inset-0 bg-black"></div>
@@ -2279,7 +2293,7 @@ export default function DomainMarketplace() {
       {/* Content */}
       <div className="relative z-10 max-w-7xl mx-auto">
         {/* Header */}
-        <div className="relative text-center mb-16">
+        <div className="relative text-center mb-8 sm:mb-12 lg:mb-16">
           {/* Fullscreen Toggle Button */}
           <button
             onClick={toggleFullscreen}
@@ -2293,7 +2307,7 @@ export default function DomainMarketplace() {
           </button>
 
           <h2
-            className="text-white font-space-mono text-4xl mb-6"
+            className="text-white font-space-mono text-2xl sm:text-3xl lg:text-4xl mb-4 sm:mb-6"
             style={{
               fontWeight: 700,
               lineHeight: '100%',
@@ -2303,11 +2317,10 @@ export default function DomainMarketplace() {
             Domain Marketplace
           </h2>
           <p
-            className="text-white max-w-2xl mx-auto font-space-mono"
+            className="text-white max-w-2xl mx-auto font-space-mono text-sm sm:text-base lg:text-lg xl:text-xl px-4"
             style={{
               fontWeight: 400,
-              fontSize: '20px',
-              lineHeight: '100%',
+              lineHeight: '120%',
               letterSpacing: '0px'
             }}
           >
@@ -2316,7 +2329,7 @@ export default function DomainMarketplace() {
         </div>
 
         {/* Navigation Tabs and Search */}
-        <div className="mb-8 flex flex-col lg:flex-row items-start lg:items-end justify-between gap-4">
+        <div className="mb-6 sm:mb-8 flex flex-col lg:flex-row items-start lg:items-end justify-between gap-4">
           <TabNavigation
             tabs={tabs}
             activeTab={activeTab}
@@ -2364,17 +2377,19 @@ export default function DomainMarketplace() {
           className="flex flex-col"
           style={{
             width: '100%',
-            height: '909px',
+            height: 'auto',
+            minHeight: '500px',
+            maxHeight: '909px',
             borderWidth: '1px',
             opacity: 1,
-            paddingTop: '50px',
-            paddingRight: '30px',
-            paddingBottom: '50px',
-            paddingLeft: '30px',
-            gap: '40px',
-            borderTopRightRadius: '20px',
-            borderBottomRightRadius: '20px',
-            borderBottomLeftRadius: '20px',
+            paddingTop: '16px',
+            paddingRight: '12px',
+            paddingBottom: '16px',
+            paddingLeft: '12px',
+            gap: '16px',
+            borderTopRightRadius: '16px',
+            borderBottomRightRadius: '16px',
+            borderBottomLeftRadius: '16px',
             backgroundColor: '#121212',
             border: '1px solid',
             borderImage: 'radial-gradient(88.13% 63.48% at 26.09% 25.74%, #FFFFFF 0%, rgba(255, 255, 255, 0.905829) 8.52%, rgba(255, 255, 255, 0.801323) 40.45%, rgba(255, 255, 255, 0.595409) 40.46%, rgba(255, 255, 255, 0.29) 96.15%, rgba(255, 255, 255, 0) 100%, rgba(255, 255, 255, 0) 100%), linear-gradient(180deg, rgba(0, 0, 0, 0.2) 18.72%, rgba(255, 30, 0, 0.2) 43.64%, rgba(255, 255, 255, 0.2) 67.21%)',
@@ -2382,10 +2397,8 @@ export default function DomainMarketplace() {
           }}
         >
           {/* Dynamic Tab Content - Scrollable Area */}
-          <div className="flex-1 overflow-hidden">
-            <div className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-purple-500 scrollbar-track-gray-800 pr-2">
-              {renderTabContent()}
-            </div>
+          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-500 scrollbar-track-gray-800 pr-2">
+            {renderTabContent()}
           </div>
         </div>
       </div>

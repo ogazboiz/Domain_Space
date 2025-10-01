@@ -9,7 +9,9 @@ export default function Header() {
   const [mounted, setMounted] = useState(false);
   const [isWalletDropdownOpen, setIsWalletDropdownOpen] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   // Privy hooks
@@ -22,11 +24,14 @@ export default function Header() {
 
   useEffect(() => setMounted(true), []);
 
-  // Click outside to close dropdown (Agro's approach)
+  // Click outside to close dropdowns
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsWalletDropdownOpen(false);
+      }
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
+        setIsMobileMenuOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -46,6 +51,15 @@ export default function Header() {
 
   const handleWalletButtonClick = () => {
     setIsWalletDropdownOpen(!isWalletDropdownOpen);
+  };
+
+  const handleMobileMenuToggle = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  const handleNavigationClick = (action: () => void) => {
+    action();
+    setIsMobileMenuOpen(false); // Close mobile menu after navigation
   };
 
   const handleDisconnect = async (event: React.MouseEvent) => {
@@ -79,7 +93,7 @@ export default function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-black/95 backdrop-blur-md border-b border-white/10">
+    <header className="sticky top-0 z-[999] w-full bg-black/95 backdrop-blur-md border-b border-white/10">
       <div className="flex items-center justify-between px-4 py-4 lg:px-8 lg:py-6 max-w-7xl mx-auto h-16 lg:h-20">
 
         {/* Logo Section */}
@@ -110,8 +124,13 @@ export default function Header() {
           </button>
           <button
             onClick={() => {
+              // Scroll to marketplace section if it exists, otherwise just scroll to top
               const marketplace = document.getElementById('marketplace-section');
-              if (marketplace) marketplace.scrollIntoView({ behavior: 'smooth' });
+              if (marketplace) {
+                marketplace.scrollIntoView({ behavior: 'smooth' });
+              } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
             }}
             className="flex items-center space-x-2 text-white/80 hover:text-white hover:bg-white/10 px-3 py-2 rounded-lg transition-all duration-200 font-medium h-10"
           >
@@ -120,32 +139,14 @@ export default function Header() {
             </svg>
             <span className="text-sm font-medium">Marketplace</span>
           </button>
-          <button
-            onClick={() => {
-              const features = document.getElementById('features-section');
-              if (features) features.scrollIntoView({ behavior: 'smooth' });
-            }}
-            className="flex items-center space-x-2 text-white/80 hover:text-white hover:bg-white/10 px-3 py-2 rounded-lg transition-all duration-200 font-medium h-10"
-          >
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            <span className="text-sm font-medium">Features</span>
-          </button>
         </nav>
 
         {/* Right Section - Actions */}
         <div className="flex items-center space-x-3 h-full">
-
-          {/* Mobile Search Button */}
-          <button className="lg:hidden p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200">
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"/>
-            </svg>
-          </button>
-
-          {/* Wallet Section */}
-          {!mounted ? (
+          
+          {/* Wallet Section - Desktop Only */}
+          <div className="hidden lg:block">
+            {!mounted ? (
             <div className="bg-white/10 backdrop-blur-md rounded-xl px-4 py-2.5 border border-white/20">
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
@@ -225,47 +226,90 @@ export default function Header() {
               </div>
             </button>
           )}
+          </div>
+
+          {/* Mobile Menu Button */}
+          <button
+            onClick={handleMobileMenuToggle}
+            className="lg:hidden p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200"
+            aria-label="Toggle mobile menu"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {isMobileMenuOpen ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              )}
+            </svg>
+          </button>
         </div>
       </div>
 
       {/* Mobile Navigation Menu */}
-      <div className="lg:hidden px-4 pb-4">
-        <div className="flex items-center justify-center space-x-4">
-          <button
-            onClick={() => router.push('/')}
-            className="flex flex-col items-center space-y-1 text-white/70 hover:text-white p-3 rounded-lg hover:bg-white/10 transition-all duration-200"
-          >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
-            </svg>
-            <span className="text-xs">Home</span>
-          </button>
-          <button
-            onClick={() => {
-              const marketplace = document.getElementById('marketplace-section');
-              if (marketplace) marketplace.scrollIntoView({ behavior: 'smooth' });
-            }}
-            className="flex flex-col items-center space-y-1 text-white/70 hover:text-white p-3 rounded-lg hover:bg-white/10 transition-all duration-200"
-          >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 2L3 7v11a1 1 0 001 1h3a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1h3a1 1 0 001-1V7l-7-5z" clipRule="evenodd"/>
-            </svg>
-            <span className="text-xs">Market</span>
-          </button>
-          <button
-            onClick={() => {
-              const features = document.getElementById('features-section');
-              if (features) features.scrollIntoView({ behavior: 'smooth' });
-            }}
-            className="flex flex-col items-center space-y-1 text-white/70 hover:text-white p-3 rounded-lg hover:bg-white/10 transition-all duration-200"
-          >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            <span className="text-xs">Features</span>
-          </button>
+      {isMobileMenuOpen && (
+        <div className="lg:hidden border-t border-white/10 bg-black/95 backdrop-blur-md" ref={mobileMenuRef}>
+          <div className="px-4 py-4 space-y-2">
+            <button
+              onClick={() => handleNavigationClick(() => router.push('/'))}
+              className="w-full flex items-center space-x-3 text-white/80 hover:text-white hover:bg-white/10 px-4 py-3 rounded-lg transition-all duration-200"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+              </svg>
+              <span className="font-medium">Home</span>
+            </button>
+            <button
+              onClick={() => handleNavigationClick(() => {
+                const marketplace = document.getElementById('marketplace-section');
+                if (marketplace) {
+                  marketplace.scrollIntoView({ behavior: 'smooth' });
+                } else {
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+              })}
+              className="w-full flex items-center space-x-3 text-white/80 hover:text-white hover:bg-white/10 px-4 py-3 rounded-lg transition-all duration-200"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 2L3 7v11a1 1 0 001 1h3a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1h3a1 1 0 001-1V7l-7-5z" clipRule="evenodd"/>
+              </svg>
+              <span className="font-medium">Marketplace</span>
+            </button>
+            {/* Wallet Actions for Mobile */}
+            <div className="border-t border-white/10 pt-2 mt-2">
+              {!mounted ? (
+                <div className="px-4 py-2 text-sm text-gray-400">
+                  Connecting...
+                </div>
+              ) : authenticated && address ? (
+                <div className="space-y-2">
+                  <div className="px-4 py-2 text-sm text-gray-400">
+                    Connected: {truncateAddress(address)}
+                  </div>
+                  <button
+                    onClick={() => handleNavigationClick(() => handleDisconnect({} as React.MouseEvent))}
+                    className="w-full flex items-center space-x-3 text-red-400 hover:text-red-300 hover:bg-red-400/10 px-4 py-3 rounded-lg transition-all duration-200"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    <span className="font-medium">Disconnect</span>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => handleNavigationClick(() => handleConnect())}
+                  className="w-full flex items-center space-x-3 text-white/80 hover:text-white hover:bg-white/10 px-4 py-3 rounded-lg transition-all duration-200"
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"/>
+                  </svg>
+                  <span className="font-medium">Connect Wallet</span>
+                </button>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </header>
 
   );

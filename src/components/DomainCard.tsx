@@ -88,6 +88,25 @@ const DomainCard = ({
     }
   }, [domain, onWatch]);
 
+  const handleShareClick = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const shareData = {
+      title: `Check out ${domain.name} on Domain Space`,
+      text: `Discover ${domain.name} - ${isListed ? `Available for ${formatPrice(listing.price, listing.currency.decimals)} ${listing.currency.symbol}` : 'Available for offers'}`,
+      url: window.location.href
+    };
+
+    if (navigator.share) {
+      navigator.share(shareData);
+    } else {
+      // Fallback: copy to clipboard
+      navigator.clipboard.writeText(`${shareData.title}\n${shareData.text}\n${shareData.url}`);
+      // You could add a toast notification here
+    }
+  }, [domain, isListed, listing, formatPrice]);
+
   // Calculate USD value (using a rough ETH price estimate)
   const getUSDValue = useCallback((ethPrice: string, decimals: number) => {
     const ethValue = parseFloat(ethPrice) / Math.pow(10, decimals);
@@ -100,38 +119,46 @@ const DomainCard = ({
     <div
       className="flex flex-col transition-all duration-300 w-full max-w-sm group hover:scale-105 bg-gray-900/50 rounded-xl border border-gray-700 hover:border-purple-500/50 hover:bg-gray-800/50 cursor-pointer relative"
       style={{
-        minHeight: '280px',
-        padding: '20px 16px',
+        minHeight: '240px',
+        padding: '16px 12px',
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => onClick?.(domain)}
     >
-      {/* Watchlist Button - Top Right */}
-      <button
-        onClick={handleWatchClick}
-        className="absolute top-3 right-3 z-10 transition-all duration-200 hover:scale-110"
-        title={isWatched?.(domain.name) ? 'Remove from watchlist' : 'Add to watchlist'}
-      >
-        <span className={`text-2xl ${isWatched?.(domain.name) ? 'opacity-100' : 'opacity-40 group-hover:opacity-70'}`}>
-          {isWatched?.(domain.name) ? '⭐' : '☆'}
-        </span>
-      </button>
+      {/* Action Buttons - Top Right */}
+      <div className="absolute top-3 right-3 z-10 flex gap-2">
+        <button
+          onClick={handleShareClick}
+          className="transition-all duration-200 hover:scale-110 opacity-40 group-hover:opacity-70"
+          title="Share domain"
+        >
+          <span className="text-xl">📤</span>
+        </button>
+        <button
+          onClick={handleWatchClick}
+          className="transition-all duration-200 hover:scale-110"
+          title={isWatched?.(domain.name) ? 'Remove from watchlist' : 'Add to watchlist'}
+        >
+          <span className={`text-2xl ${isWatched?.(domain.name) ? 'opacity-100' : 'opacity-40 group-hover:opacity-70'}`}>
+            {isWatched?.(domain.name) ? '⭐' : '☆'}
+          </span>
+        </button>
+      </div>
 
       {/* Header Section */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center space-x-3 flex-1 min-w-0 pr-8">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0 pr-6 sm:pr-8">
           <DomainAvatar
             domain={domain.name}
-            className="w-8 h-8 flex-shrink-0"
-            size={32}
+            className="w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0"
+            size={24}
           />
           <div className="flex-1 min-w-0">
             <h3
-              className="font-bold truncate font-space-mono"
+              className="font-bold truncate font-space-mono text-sm sm:text-base"
               style={{
                 fontWeight: 700,
-                fontSize: '16px',
                 lineHeight: '120%',
                 letterSpacing: '0%'
               }}
@@ -175,7 +202,7 @@ const DomainCard = ({
 
       {/* Info Section */}
       <div className="flex-1 flex flex-col justify-between">
-        <div className="space-y-2 mb-4">
+        <div className="space-y-2 mb-3">
           <div className="flex items-center space-x-2">
             <span
               className="text-white text-xs px-2 py-1 rounded"
@@ -252,6 +279,7 @@ const DomainCard = ({
                       padding: '6px 12px',
                       backgroundColor: '#773BAC'
                     }}
+                    title="Buy instantly at listed price"
                   >
                     Buy
                   </button>
@@ -267,6 +295,7 @@ const DomainCard = ({
                       border: '1px solid #FFFFFF',
                       backgroundColor: 'transparent'
                     }}
+                    title="Make a custom offer to negotiate price"
                   >
                     Offer
                   </button>
@@ -303,6 +332,7 @@ const DomainCard = ({
                   border: '1px solid #10B981',
                   backgroundColor: 'transparent'
                 }}
+                title="Message domain owner directly via XMTP"
               >
                 💬 Message
               </button>
