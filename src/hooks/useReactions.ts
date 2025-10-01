@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { Client, DecodedMessage, Dm } from '@xmtp/browser-sdk';
 import { ContentTypeReaction, Reaction } from '@xmtp/content-type-reaction';
 
@@ -61,7 +61,8 @@ export function useReactions(
     for (const msg of reactionMessages) {
       try {
         const reaction = msg.content as Reaction;
-        const from = (msg as any).senderInboxId || (msg as any).senderAddress || 'unknown';
+        const msgWithSender = msg as DecodedMessage & { senderInboxId?: string; senderAddress?: string };
+        const from = msgWithSender.senderInboxId || msgWithSender.senderAddress || 'unknown';
         
         const emoji = getEmojiFromReaction(reaction.content, reaction.schema);
         
@@ -102,7 +103,8 @@ export function useReactions(
     setError(null);
 
     try {
-      const clientAddress = (client as any).inboxId || (client as any).address || 'unknown';
+      const clientWithId = client as Client & { inboxId?: string; address?: string };
+      const clientAddress = clientWithId.inboxId || clientWithId.address || 'unknown';
       
       // Check if user already has a reaction on this message
       const existingReaction = reactions.find(
@@ -117,7 +119,8 @@ export function useReactions(
           content: existingReaction.emoji,
           schema: 'unicode',
         };
-        await (conversation as any).sendOptimistic(removeReaction, ContentTypeReaction);
+        const convWithOptimistic = conversation as Dm & { sendOptimistic: (content: Reaction, codec: unknown) => Promise<void>; publishMessages: () => Promise<void> };
+      await convWithOptimistic.sendOptimistic(removeReaction, ContentTypeReaction);
       }
 
       // Add the new reaction
@@ -128,8 +131,9 @@ export function useReactions(
         schema: 'unicode',
       };
 
-      await (conversation as any).sendOptimistic(reaction, ContentTypeReaction);
-      await (conversation as any).publishMessages();
+      const convWithMethods = conversation as Dm & { sendOptimistic: (content: Reaction, codec: unknown) => Promise<void>; publishMessages: () => Promise<void> };
+      await convWithMethods.sendOptimistic(reaction, ContentTypeReaction);
+      await convWithMethods.publishMessages();
 
       // Update local state: remove old reaction and add new one
       setReactions(prev => {
@@ -171,11 +175,13 @@ export function useReactions(
         schema: 'unicode',
       };
 
-      await (conversation as any).sendOptimistic(reaction, ContentTypeReaction);
-      await (conversation as any).publishMessages();
+      const convWithMethods = conversation as Dm & { sendOptimistic: (content: Reaction, codec: unknown) => Promise<void>; publishMessages: () => Promise<void> };
+      await convWithMethods.sendOptimistic(reaction, ContentTypeReaction);
+      await convWithMethods.publishMessages();
 
       // Update local state immediately
-      const clientAddress = (client as any).inboxId || (client as any).address || 'unknown';
+      const clientWithId = client as Client & { inboxId?: string; address?: string };
+      const clientAddress = clientWithId.inboxId || clientWithId.address || 'unknown';
       setReactions(prev => 
         prev.filter(r => !(
           r.messageId === messageId && 

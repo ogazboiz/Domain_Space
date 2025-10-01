@@ -52,7 +52,10 @@ class AirtableWatchlistService {
         })
         .all();
       
-      const domains = records.map((record) => (record.fields as any).Domain_Name).filter(Boolean);
+      const domains = records.map((record) => {
+        const fields = record.fields as { Domain_Name?: string };
+        return fields.Domain_Name;
+      }).filter((name): name is string => Boolean(name));
       return domains;
     } catch (error) {
       throw error;

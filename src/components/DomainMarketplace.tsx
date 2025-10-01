@@ -212,7 +212,6 @@ const ChatDomainSearchBar = ({
                 <button
                   key={domain.name}
                   onClick={() => {
-('🖱️ Domain dropdown clicked:', domain.name, domain.claimedBy);
                     setShowResults(false);
                     onDomainClick(domain);
                   }}
@@ -731,7 +730,7 @@ export default function DomainMarketplace() {
     isLoading: isLoadingOffers,
     error: offersError,
     refetch: refetchOffers
-  } = useOffers(20, selectedDomainData?.tokens?.[0]?.tokenId || "");
+  } = useOffers(selectedDomainData?.tokens?.[0]?.tokenId || "", 20);
 
   // Process offers data
   const offers = useMemo(() => {
@@ -776,10 +775,8 @@ export default function DomainMarketplace() {
 
     // Detect actual address change (not just undefined to address or vice versa)
     if (prevAddress && currentAddress && prevAddress !== currentAddress) {
-('🔄 Address switched from', prevAddress, 'to', currentAddress);
 
       if (activeTab === "myspace" || activeTab === "chat") {
-('🔄 Reloading data for myspace/chat tabs due to address switch');
 
         // Reset myspace tab states
         if (activeTab === "myspace") {
@@ -789,8 +786,6 @@ export default function DomainMarketplace() {
 
         // Reset chat states and force XMTP reconnection
         if (activeTab === "chat") {
-('🔄 Resetting XMTP for address switch:', currentAddress);
-
           // Reset XMTP context completely
           resetXmtp();
 
@@ -801,7 +796,6 @@ export default function DomainMarketplace() {
 
           // Trigger reconnection after a brief delay to ensure clean state
           setTimeout(() => {
-('🔄 Reconnecting XMTP for new address:', currentAddress);
             connectXmtp();
           }, 200);
         }
@@ -820,7 +814,6 @@ export default function DomainMarketplace() {
   // Handle wallet disconnect (when address becomes undefined)
   useAccountEffect({
     onDisconnect() {
-('🔄 Wallet disconnected, clearing all data');
 
       // Reset XMTP completely
       resetXmtp();
@@ -837,33 +830,6 @@ export default function DomainMarketplace() {
     }
   });
 
-  // Debug logging
-  useEffect(() => {
-('🔍 Browse domains status:', {
-      isLoading: isLoadingBrowse,
-      error: browseError?.message,
-      domainsCount: browseDomains.length,
-      apiUrl: process.env.NEXT_PUBLIC_DOMA_GRAPHQL_URL
-    });
-  }, [isLoadingBrowse, browseError, browseDomains.length]);
-('Browse Domains Debug:', {
-    browseDomainsData,
-    browseDomains: browseDomains.length,
-    totalBrowseCount,
-    isLoadingBrowse,
-    browseError,
-    searchQuery,
-    tldFilter
-  });
-
-('Offers Debug:', {
-    tokenId: selectedDomainData?.tokens?.[0]?.tokenId,
-    offersData,
-    offers: offers.length,
-    highestOffer,
-    isLoadingOffers,
-    offersError
-  });
   const ownedDomainsCount = ownedDomainsData?.pages?.[0]?.totalCount ?? 0;
   const watchedDomainsCount = watchedDomainsData?.pages?.[0]?.totalCount ?? 0;
 
@@ -924,7 +890,6 @@ export default function DomainMarketplace() {
       return;
     }
 
-('✅ Starting conversation with domain owner:', ownerAddress);
     
     // Set the owner address and switch to chat tab immediately
     setSelectedUserAddress(ownerAddress);
@@ -982,18 +947,15 @@ export default function DomainMarketplace() {
     // Close modal and clear state - data will refresh automatically
     setShowListModal(false);
     setDomainToList(null);
-(`Domain ${domain.name} listed successfully`);
   }, []);
 
   const handleCancelListingSuccess = useCallback((domain: Name) => {
     // Close modal and clear state - data will refresh automatically
     setShowCancelListingModal(false);
     setDomainToList(null);
-(`Listing for ${domain.name} canceled successfully`);
   }, []);
 
   const handleDMCreated = useCallback((dmId: string, userAddress: string) => {
-('DM created successfully:', { dmId, userAddress });
     // Switch to chat tab to show the new conversation
     setActiveTab("chat");
     // You can add additional logic here to highlight the new conversation
@@ -1002,7 +964,6 @@ export default function DomainMarketplace() {
   // Listen for conversation created events from DialogCheckingDM
   useEffect(() => {
     const handleConversationCreated = (event: CustomEvent) => {
-('📨 Received conversationCreated event:', event.detail);
       const { conversationId, userAddress } = event.detail;
       
       // Switch to chat tab and set the selected user address
@@ -1029,7 +990,6 @@ export default function DomainMarketplace() {
 
   // Handle manual conversation selection - clear selectedUserAddress to prevent auto-switching back
   const handleManualConversationSelect = useCallback(() => {
-('🔄 User manually selected a conversation, clearing selectedUserAddress');
     setSelectedUserAddress('');
     setShowCheckingDM(false); // Also close any open checking dialog
   }, []);
@@ -1047,17 +1007,12 @@ export default function DomainMarketplace() {
       return;
     }
 
-('🔄 Domain clicked for messaging:', {
-      domainName: domain.name,
-      ownerAddress: ownerAddress
-    });
     
     setSelectedUserAddress(ownerAddress);
     setShowCheckingDM(true);
     setChatDomainSearchQuery('');
     setShowChatDomainSearch(false);
     
-('✅ Opening XMTP check dialog for user:', ownerAddress);
   }, []);
 
   // Click outside handler for chat domain search dropdown
@@ -1077,7 +1032,6 @@ export default function DomainMarketplace() {
   // Clear selectedUserAddress when switching away from chat tab
   useEffect(() => {
     if (activeTab !== "chat") {
-('🔄 Switched away from chat tab, clearing selectedUserAddress');
       setSelectedUserAddress('');
       setShowCheckingDM(false);
     }
@@ -2161,7 +2115,6 @@ export default function DomainMarketplace() {
           </div>
         );
       case "chat":
-('Rendering chat tab with selectedUserAddress:', selectedUserAddress);
         return (
           <div className="h-full w-full">
             <ImprovedXMTPChat

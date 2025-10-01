@@ -134,7 +134,7 @@ export function useNameStats(tokenId: string) {
   });
 }
 
-export function useOffers(take: number, tokenId: string) {
+export function useOffers(tokenId: string, take: number) {
   return useInfiniteQuery({
     queryKey: queryKeys.allOffers(1, take, tokenId),
     queryFn: ({ pageParam = 1 }: { pageParam: number }) =>

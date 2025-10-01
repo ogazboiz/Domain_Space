@@ -295,8 +295,8 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
       });
 
       // Filter for DM conversations only, excluding group chats
-      const dms = allConversations.filter((conv) =>
-        'peerInboxId' in conv && typeof conv.peerInboxId === 'function'
+      const dms = allConversations.filter((conv: unknown) =>
+        typeof conv === 'object' && conv !== null && 'peerInboxId' in conv && typeof (conv as {peerInboxId: unknown}).peerInboxId === 'function'
       ) as Dm[];
 
       const enhancedConversations: EnhancedConversation[] = (await Promise.all(
@@ -931,33 +931,35 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     const setupConversationStream = async () => {
       try {
         const controller = await client.conversations.stream({
-          onValue: async (conversation) => {
+          onValue: async (conversation: unknown) => {
             // Only handle DM conversations, skip groups
-            if (!('peerInboxId' in conversation) || typeof conversation.peerInboxId !== 'function') {
+            if (typeof conversation !== 'object' || conversation === null || !('peerInboxId' in conversation) || typeof (conversation as {peerInboxId: unknown}).peerInboxId !== 'function') {
               return;
             }
 
+            // Cast to Dm type for type safety
+            const dmConversation = conversation as Dm;
+            
             // Get peer address for the new DM conversation
-            const peerAddress = await getPeerAddress(conversation as Dm);
+            const peerAddress = await getPeerAddress(dmConversation);
 
             // Skip conversations without valid peer addresses in streaming too
             if (!peerAddress) return;
 
             const newConv: EnhancedConversation = {
-              id: conversation.id,
+              id: dmConversation.id,
               peerAddress,
               metadata: {
                 unreadCount: 1,
                 isTyping: false,
               },
-              xmtpObject: conversation, // Store the original XMTP object
+              xmtpObject: dmConversation, // Store the original XMTP object
             };
 
             // Use deduplication when adding new conversations from stream
             setConversations(prev => {
               const combined = [newConv, ...prev];
               const deduplicated = deduplicateConversations(combined);
-(`🔄 Stream conversation added: ${combined.length} → ${deduplicated.length} conversations`);
               return deduplicated;
             });
           },

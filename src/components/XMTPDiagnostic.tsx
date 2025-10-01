@@ -33,7 +33,7 @@ export default function XMTPDiagnostic() {
         try {
           const conversations = await client.conversations.list();
           results.conversationsCount = conversations.length;
-          results.conversationTypes = conversations.map(c => c.constructor.name);
+          results.conversationTypes = conversations.map((c: { constructor: { name: string } }) => c.constructor.name);
         } catch (err) {
           results.conversationsError = (err as Error).message;
         }

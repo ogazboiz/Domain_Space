@@ -66,8 +66,8 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
     try {
       const allConversations = await client.conversations.list();
       // Filter for DM conversations only, excluding group chats
-      const dms = allConversations.filter((conv) =>
-        'peerInboxId' in conv && typeof conv.peerInboxId === 'function'
+      const dms = allConversations.filter((conv: unknown) =>
+        typeof conv === 'object' && conv !== null && 'peerInboxId' in conv && typeof (conv as {peerInboxId: unknown}).peerInboxId === 'function'
       ) as Dm[];
 
       const enhancedConversations: EnhancedConversation[] = await Promise.all(
@@ -205,7 +205,7 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
       if (existing) {
         // Find the original XMTP conversation from the list
         const originalConversation = await client?.conversations.list();
-        const actualConversation = originalConversation?.find((c) => c.id === existing.id) as Dm;
+        const actualConversation = originalConversation?.find((c: {id?: string}) => c.id === existing.id) as Dm;
         
         if (actualConversation) {
           // Create enhanced conversation from existing
@@ -613,7 +613,7 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
                   onClick={async () => {
                     // Get the actual XMTP conversation object
                     const originalConversations = await client?.conversations.list();
-                    const actualConversation = originalConversations?.find((c) => c.id === conversation.id);
+                    const actualConversation = originalConversations?.find((c: {id?: string}) => c.id === conversation.id);
                     
                     if (actualConversation) {
                       // Create enhanced conversation from existing
