@@ -97,7 +97,6 @@ export const useSimpleOrderbook = () => {
     setError(null);
 
     try {
-      console.log('💰 Creating offer (simplified):', params);
 
       // Simulate progress
       params.onProgress?.([
@@ -137,7 +136,6 @@ export const useSimpleOrderbook = () => {
         transactionHash: '0x' + Math.random().toString(16).substr(2, 64)
       };
 
-      console.log('✅ Offer created successfully (simulated):', result);
       return result;
 
     } catch (err: unknown) {
@@ -167,7 +165,6 @@ export const useSimpleOrderbook = () => {
     setError(null);
 
     try {
-      console.log('🛒 Buying listing (simplified):', params);
 
       // Simulate progress
       params.onProgress?.([
@@ -193,7 +190,6 @@ export const useSimpleOrderbook = () => {
         success: true
       };
 
-      console.log('✅ Purchase successful (simulated):', result);
       return result;
 
     } catch (err: unknown) {

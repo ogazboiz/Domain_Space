@@ -125,7 +125,6 @@ export const useOrderbookAPI = () => {
     try {
       const signer = viemToEthersSigner(walletClient, params.chainId as `eip155:${number}`);
 
-      console.log('💰 Creating offer via API:', params);
 
       // Step 1: Generate the order parameters using Seaport/OrderBook SDK
       // This would require integrating with Seaport to create the proper order structure
@@ -195,7 +194,6 @@ export const useOrderbookAPI = () => {
       }
 
       const result = await response.json();
-      console.log('✅ Offer created successfully:', result);
 
       params.onProgress?.([
         { description: 'Order signed', status: 'completed' },

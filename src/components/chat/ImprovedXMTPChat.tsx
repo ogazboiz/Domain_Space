@@ -9,6 +9,9 @@ import { toast } from 'sonner'
 import { ChatAvatar } from '@/components/ui/ChatAvatar'
 import TradeOptionsModal from '../TradeOptionsModal'
 import TradeMessageRenderer from '../TradeMessageRenderer'
+import { ContentTypeReaction, Reaction } from '@xmtp/content-type-reaction'
+import { useReactions } from '@/hooks/useReactions'
+import { Smile } from 'lucide-react'
 
 interface ImprovedXMTPChatProps {
   defaultPeerAddress?: string;
@@ -40,6 +43,13 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
   const [activePeerAddress, setActivePeerAddress] = useState<string>('')
   const [messages, setMessages] = useState<DecodedMessage[]>([])
   const [newMessage, setNewMessage] = useState('')
+  const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null) // messageId for which picker is shown
+  
+  // Reactions hook
+  const { reactions, addReaction, removeReaction, loadReactions } = useReactions(
+    client,
+    activeConversation
+  )
   const [newConversationAddress, setNewConversationAddress] = useState(defaultPeerAddress && defaultPeerAddress.trim() ? defaultPeerAddress : '')
   const [isSendingMessage, setIsSendingMessage] = useState(false)
   const [showNewConversation, setShowNewConversation] = useState(false)
@@ -266,7 +276,6 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     return uniqueConversations;
   }, []);
 
-  // Load conversations with metadata (like domainline)
   const loadConversations = useCallback(async () => {
     if (!client || isLoadingConversations) {
       return;
@@ -274,7 +283,6 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     setIsLoadingConversations(true);
     setLoading(true);
     try {
-      // Force sync all conversations and messages like frontend
       await client.conversations.syncAll();
 
       // Add delay to ensure sync completes
@@ -338,13 +346,11 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     }
   }, [client, getPeerAddress, isLoadingConversations, deduplicateConversations]);
 
-  // Create conversation (like domainline)
   const createConversation = useCallback(
     async (peerAddress: string, initialMessage?: string): Promise<Dm | null> => {
       if (!client) return null;
 
       try {
-        // Check if user can message this address using instance method (like domainline)
         const identifier = {
           identifier: peerAddress,
           identifierKind: "Ethereum" as const
@@ -398,7 +404,6 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     [conversations]
   );
 
-  // Get or create conversation (like domainline)
   const getOrCreateConversation = useCallback(
     async (peerAddress: string, initialMessage?: string): Promise<Dm | null> => {
       const existingConversation = findConversationByPeer(peerAddress);
@@ -429,19 +434,18 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
   //   }
 
   //   try {
-  //     console.log('Loading messages for conversation:', targetConversation.id);
+  // ('Loading messages for conversation:', targetConversation.id);
   //     await targetConversation.sync();
   //     const msgs = await targetConversation.messages();
   //     
-  //     console.log('Raw messages from XMTP:', msgs);
+  // ('Raw messages from XMTP:', msgs);
   //     
-  //     // Filter out system messages and keep only text messages (like domainline)
   //     const textMessages = msgs.filter((msg: DecodedMessage) => {
   //       const isText = typeof msg.content === "string" && 
   //                     msg.content !== "" && 
   //                     !msg.content.startsWith("{") && // Filter out JSON system messages
   //                     !msg.content.includes("initiatedByInboxId"); // Filter out conversation creation messages
-  //       console.log('Message filter check:', { 
+  //   ('Message filter check:', { 
   //         content: msg.content, 
   //         isText, 
   //         type: typeof msg.content 
@@ -449,7 +453,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
   //       return isText;
   //     });
   //     
-  //     console.log('Filtered text messages:', textMessages);
+  // ('Filtered text messages:', textMessages);
   //     setMessages(textMessages);
   //   } catch (err) {
   //     console.error('Failed to load messages:', err);
@@ -491,7 +495,6 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
         setShowNewConversation(false);
         toast.success("Conversation created successfully");
 
-        // Update URL parameters for persistence (like domainline)
         const params = new URLSearchParams(window.location.search);
         params.set("dm", conversation.id);
         params.set("sender", newConversationAddress);
@@ -513,7 +516,6 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     toast.loading('Syncing all conversations...', { id: 'global-sync' });
 
     try {
-      // Use syncAll() like frontend to sync all conversations and messages
       await client.conversations.syncAll();
 
       // Reload conversations
@@ -549,7 +551,6 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     toast.loading('Syncing conversation...', { id: 'conversation-sync' });
 
     try {
-      // Sync only this specific conversation like frontend
       await activeConversation.sync();
 
       // Refresh messages for this conversation
@@ -599,10 +600,8 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     setActivePeerAddress(conversation.peerAddress);
     
     // Load messages immediately with the specific conversation
-    console.log("🔄 Loading messages for conversation:", conversation.id);
     try {
       // Force fresh sync from XMTP network (critical for cross-port consistency)
-      console.log('🔄 Step 1: Syncing XMTP client and conversation...');
 
       // First sync the entire client to get latest network state
       if (client) {
@@ -615,38 +614,19 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
       // Add a longer delay to ensure sync completion
       await new Promise(resolve => setTimeout(resolve, 300));
 
-      console.log('🔄 Step 2: Fetching messages after sync...');
-      const msgs = await conversation.xmtpObject.messages();
+      // Load ALL messages (including reactions)
+      const allMsgs = await conversation.xmtpObject.messages();
       
-      console.log('Raw messages from XMTP:', msgs);
-      
-      // DEBUG: Show ALL messages first to see what's being filtered
-      console.log('🔍 DEBUG: All raw messages:', msgs.map(m => ({
-        id: m.id,
-        content: m.content,
-        contentType: typeof m.content,
-        contentLength: typeof m.content === 'string' ? m.content.length : 0,
-        senderInboxId: m.senderInboxId,
-        startsWithBrace: typeof m.content === 'string' ? m.content.startsWith('{') : false,
-        includesInitiated: typeof m.content === 'string' ? m.content.includes('initiatedByInboxId') : false
-      })));
-
-      // TEMPORARY: Show ALL messages to debug the filtering
-      const textMessages = msgs.filter((msg: DecodedMessage) => {
-        // Much more permissive filter for debugging
+      // Filter text messages (exclude reactions, receipts, etc)
+      const textMessages = allMsgs.filter((msg: DecodedMessage) => {
         const isText = typeof msg.content === "string" && msg.content !== "";
-        console.log('🔍 Message filter check:', {
-          content: msg.content,
-          isText,
-          type: typeof msg.content,
-          length: typeof msg.content === 'string' ? msg.content.length : 0
-        });
         return isText;
       });
-      
 
       setMessages(textMessages);
-      console.log("✅ Messages set in state, current count:", textMessages.length);
+      
+      // Load reactions separately and pass them to the reactions hook
+      loadReactions(allMsgs);
     } catch (error) {
       console.error("Failed to load messages:", error);
       setMessages([]);
@@ -655,28 +635,18 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
       setIsManuallySelecting(false);
     }
     
-    // Update URL parameters for persistence (like domainline)
     const params = new URLSearchParams(window.location.search);
     params.set("dm", conversation.id);
     params.set("sender", conversation.peerAddress || "");
     window.history.replaceState({}, "", `${window.location.pathname}?${params}`);
   };
 
-  // Auto-create conversation when defaultPeerAddress is provided (like domainline)
   useEffect(() => {
-    console.log("🔄 Auto-create effect triggered", {
-      defaultPeerAddress,
-      hasClient: !!client,
-      activeConversationId: activeConversation?.id
-    });
-
     // Only run if we have a VALID defaultPeerAddress and client, and no active conversation
     // This prevents running when manually selecting conversations or when defaultPeerAddress is empty
     if (defaultPeerAddress && defaultPeerAddress.trim() && client && !activeConversation && !isManuallySelecting) {
       const createConversationForPeer = async () => {
         // Check if we already have a conversation with this peer
-        console.log("🔍 Looking for existing conversation with:", defaultPeerAddress);
-        console.log("🔍 Available conversations:", conversations.map(c => ({ id: c.id, peerAddress: c.peerAddress })));
         const existingConversation = findConversationByPeer(defaultPeerAddress);
         if (existingConversation) {
           setLoadingMessages(true);
@@ -685,35 +655,32 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
           
           // Load messages for existing conversation
           try {
-            console.log('🔄 Force syncing existing conversation...');
             await existingConversation.xmtpObject.sync();
             await new Promise(resolve => setTimeout(resolve, 100));
             const msgs = await existingConversation.xmtpObject.messages();
             
-            // DEBUG: Much more permissive filter
+            // Filter text messages
             const textMessages = msgs.filter((msg: DecodedMessage) => {
               const isText = typeof msg.content === "string" && msg.content !== "";
               return isText;
             });
             
             setMessages(textMessages);
+            loadReactions(msgs);
           } catch (error) {
             console.error("Failed to load messages:", error);
             setMessages([]);
           } finally {
-            console.log("✅ Setting loadingMessages to false for existing conversation");
             setLoadingMessages(false);
           }
           return;
         }
 
-        console.log("❌ No existing conversation found, creating new one for:", defaultPeerAddress);
         // Create new conversation if none exists
         setIsCreatingConversation(true);
         setConversationError(null);
         setMessages([]); // Clear old messages immediately
         try {
-          console.log("Auto-creating conversation for:", defaultPeerAddress);
           
           // Check if user can receive XMTP messages
           const identifier = {
@@ -735,24 +702,23 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
           }
 
           const conversation = await client.conversations.newDm(inboxId);
-          console.log("Created conversation:", conversation);
           
           setActiveConversation(conversation);
           
           // Load messages directly without using the loadMessages function
           try {
-            console.log('🔄 Force syncing new conversation...');
             await conversation.sync();
             await new Promise(resolve => setTimeout(resolve, 100));
             const msgs = await conversation.messages();
             
-            // DEBUG: Much more permissive filter
+            // Filter text messages
             const textMessages = msgs.filter((msg: DecodedMessage) => {
               const isText = typeof msg.content === "string" && msg.content !== "";
               return isText;
             });
             
             setMessages(textMessages);
+            loadReactions(msgs);
           } catch (error) {
             console.error("Failed to load messages:", error);
             setMessages([]);
@@ -780,7 +746,6 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     }
   }, [defaultPeerAddress, client, conversations, isManuallySelecting]);
 
-  // Load conversation from URL parameters (like domainline)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const dmId = params.get("dm");
@@ -790,32 +755,28 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     if (dmId && sender && client && (!defaultPeerAddress || !defaultPeerAddress.trim())) {
       const loadConversationFromUrl = async () => {
         try {
-          console.log("Loading conversation from URL:", { dmId, sender });
           const conversation = await client.conversations.getConversationById(dmId);
           if (conversation) {
-            console.log("Found conversation:", conversation);
             setActiveConversation(conversation as Dm);
             
             // Load messages directly without using the loadMessages function
             try {
-              console.log('🔄 Force syncing conversation from URL...');
               await (conversation as Dm).sync();
               await new Promise(resolve => setTimeout(resolve, 100));
               const msgs = await (conversation as Dm).messages();
               
-              // DEBUG: Much more permissive filter
+              // Filter text messages
               const textMessages = msgs.filter((msg: DecodedMessage) => {
                 const isText = typeof msg.content === "string" && msg.content !== "";
                 return isText;
               });
               
               setMessages(textMessages);
+              loadReactions(msgs);
             } catch (error) {
               console.error("Failed to load messages:", error);
               setMessages([]);
             }
-          } else {
-            console.log("No conversation found with ID:", dmId);
           }
         } catch (error) {
           console.error("Failed to load conversation from URL:", error);
@@ -838,7 +799,6 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
   // Listen for conversation refresh events from parent components
   useEffect(() => {
     const handleRefreshConversations = (event: CustomEvent) => {
-      console.log('🔄 Received refreshConversations event:', event.detail);
       if (client) {
         // Reload conversations to include the newly created one
         loadConversations();
@@ -855,7 +815,6 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
   // Clear active conversation when defaultPeerAddress becomes empty to prevent invalid state
   useEffect(() => {
     if (!defaultPeerAddress || !defaultPeerAddress.trim()) {
-      console.log("🧹 Clearing active conversation due to empty defaultPeerAddress");
       setActiveConversation(null);
       setMessages([]);
       setConversationError(null);
@@ -872,13 +831,11 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
   // Clear all chat state when wallet address changes, but only after XMTP client is ready
   useEffect(() => {
     if (address && !client && !isLoading) {
-      console.log("🔄 Wallet address changed, waiting for XMTP connection...");
       // Don't clear state yet, wait for client to be ready
       return;
     }
     
     if (address && client) {
-      console.log("🔄 Wallet address changed and XMTP client ready, clearing chat state");
       setConversations([]);
       setActiveConversation(null);
       setMessages([]);
@@ -890,7 +847,6 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
       setIsManuallySelecting(false);
       setIsLoadingConversations(false);
     } else if (!address) {
-      console.log("🔄 Wallet disconnected, clearing chat state");
       setConversations([]);
       setActiveConversation(null);
       setMessages([]);
@@ -928,7 +884,6 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                 return [...prev, message];
               });
 
-              // Update conversation list with latest message like frontend
               setConversations(prevConversations => {
                 return prevConversations.map(conv => {
                   if (conv.id === activeConversation.id) {
@@ -970,7 +925,6 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     }
   }, [activeConversation])
 
-  // Stream conversations for real-time updates (like domainline)
   useEffect(() => {
     if (!client || streamController) return;
 
@@ -1003,7 +957,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
             setConversations(prev => {
               const combined = [newConv, ...prev];
               const deduplicated = deduplicateConversations(combined);
-              console.log(`🔄 Stream conversation added: ${combined.length} → ${deduplicated.length} conversations`);
+(`🔄 Stream conversation added: ${combined.length} → ${deduplicated.length} conversations`);
               return deduplicated;
             });
           },
@@ -1026,7 +980,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
   // Disabled automatic scrolling to prevent page scroll issues
   // Scrolling is now only handled manually when sending messages
   // useEffect(() => {
-  //   console.log("🔄 Scroll effect triggered", { 
+  //   // console.log("🔄 Scroll effect triggered", { 
   //     messagesLength: messages.length, 
   //     loadingMessages, 
   //     isManuallySelecting,
@@ -1042,7 +996,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
   //   if (messages.length > 0 && !loadingMessages && !isManuallySelecting && activeConversation) {
   //     // Small delay to ensure DOM is updated
   //     setTimeout(() => {
-  //       console.log("📜 Scrolling to bottom");
+  //   ("📜 Scrolling to bottom");
   //       const messagesContainer = messagesEndRef.current?.parentElement;
   //       if (messagesContainer) {
   //         messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -1056,20 +1010,13 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     // Only run if we have a VALID defaultPeerAddress, conversations, and not manually selecting
     if (!defaultPeerAddress || !defaultPeerAddress.trim() || !conversations.length || isManuallySelecting) return;
 
-    console.log('🔍 Looking for conversation with defaultPeerAddress:', defaultPeerAddress);
-
     // Find conversation for the default peer address
     const targetConversation = conversations.find(conv =>
       conv.peerAddress.toLowerCase() === defaultPeerAddress.toLowerCase()
     );
 
     if (targetConversation && targetConversation.id !== activeConversation?.id) {
-      console.log('✅ Found matching conversation, auto-selecting:', targetConversation.id);
       handleSelectConversation(targetConversation);
-    } else if (targetConversation) {
-      console.log('ℹ️ Conversation already active:', targetConversation.id);
-    } else {
-      console.log('❌ No conversation found for:', defaultPeerAddress);
     }
   }, [defaultPeerAddress, conversations, activeConversation?.id, isManuallySelecting, handleSelectConversation]);
 
@@ -1350,7 +1297,6 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                   `${conversation.peerAddress.slice(0, 6)}...${conversation.peerAddress.slice(-4)}` :
                   'XMTP Chat';
 
-                // Handle special message types like frontend
                 const rawMessage = conversation.metadata.lastMessage || '';
                 let displayMessage = rawMessage;
 
@@ -1367,7 +1313,6 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                     : rawMessage;
                 }
 
-                // Format timestamp like frontend
                 const timeDisplay = conversation.metadata.lastMessageTime
                   ? formatDistanceToNow(conversation.metadata.lastMessageTime, { addSuffix: true })
                   : '';
@@ -1376,8 +1321,6 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                   <button
                     key={conversation.id}
                     onClick={() => {
-                      console.log("🖱️ Conversation clicked:", conversation.id, "peerAddress:", conversation.peerAddress);
-                      console.log("🖱️ Current active conversation:", activeConversation?.id);
                       handleSelectConversation(conversation);
                     }}
                     className={`w-full p-3 rounded-lg text-left transition-colors ${
@@ -1618,7 +1561,6 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                   {activeConversation && (
                     <button
                       onClick={() => {
-                        console.log('Trade button clicked, peer:', activePeerAddress);
                         setShowTradeModal(true);
                       }}
                       className="px-3 py-1.5 text-sm bg-purple-600/20 border border-purple-500/30 text-purple-400 hover:bg-purple-600/30 transition-colors rounded-lg"
@@ -1672,22 +1614,77 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                   return (
                     <div
                       key={message.id}
-                      className={`flex ${isFromMe ? 'justify-end' : 'justify-start'}`}
+                      className={`flex ${isFromMe ? 'justify-end' : 'justify-start'} mb-2 group`}
                     >
-                      <div
-                        className={`max-w-xs lg:max-w-md ${
-                          // Only add padding and background for regular messages, not trade cards
-                          String(message.content).startsWith('created_offer::') ||
-                          String(message.content).startsWith('created_listing::') ||
-                          String(message.content).startsWith('proposal::')
-                            ? ''
-                            : `px-4 py-2 rounded-lg ${
-                                isFromMe
-                                  ? 'bg-purple-600 text-white'
-                                  : 'bg-gray-700 text-gray-100'
-                              }`
-                        }`}
-                      >
+                      <div className="relative max-w-xs lg:max-w-md">
+                        {/* Message Bubble */}
+                        <div
+                          className={`${
+                            // Only add padding and background for regular messages, not trade cards
+                            String(message.content).startsWith('created_offer::') ||
+                            String(message.content).startsWith('created_listing::') ||
+                            String(message.content).startsWith('proposal::')
+                              ? ''
+                              : `px-4 py-2 rounded-lg ${
+                                  isFromMe
+                                    ? 'bg-purple-600 text-white'
+                                    : 'bg-gray-700 text-gray-100'
+                                }`
+                          }`}
+                        >
+                          {/* Reaction Icon - Appears on hover (WhatsApp style) */}
+                          {!String(message.content).startsWith('created_offer::') &&
+                           !String(message.content).startsWith('created_listing::') &&
+                           !String(message.content).startsWith('proposal::') &&
+                           !String(message.content).startsWith('accepted_offer::') &&
+                           !String(message.content).startsWith('declined_offer::') &&
+                           !String(message.content).startsWith('purchased_listing::') && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowEmojiPicker(showEmojiPicker === message.id ? null : message.id);
+                              }}
+                              className={`absolute ${
+                                isFromMe ? '-left-8' : '-right-8'
+                              } top-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 hover:bg-gray-700 rounded-full p-1.5 shadow-lg`}
+                              title="React to message"
+                            >
+                              <Smile className="w-4 h-4 text-gray-300" />
+                            </button>
+                          )}
+                        
+                        {/* Emoji Picker Popup (WhatsApp style) */}
+                        {showEmojiPicker === message.id && (
+                          <div className={`absolute ${isFromMe ? 'right-0' : 'left-0'} -top-14 bg-gray-800 border border-gray-600 rounded-2xl p-2 flex items-center space-x-1 shadow-xl z-50`}>
+                            {['👍', '❤️', '😂', '🎉', '😮', '😢', '🔥', '✨'].map((emoji) => (
+                              <button
+                                key={emoji}
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    await addReaction(message.id, emoji);
+                                    toast.success(`Reacted with ${emoji}`);
+                                    setShowEmojiPicker(null);
+                                  } catch (error) {
+                                    toast.error('Failed to send reaction');
+                                  }
+                                }}
+                                className="h-10 w-10 p-0 text-xl hover:bg-gray-700 rounded-full transition-colors flex items-center justify-center"
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowEmojiPicker(null);
+                              }}
+                              className="h-8 w-8 text-gray-400 hover:text-white flex items-center justify-center ml-1"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        )}
                         <TradeMessageRenderer
                           content={String(message.content)}
                           isFromMe={isFromMe}
@@ -1704,17 +1701,43 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                             }
                           }}
                         />
-                        {/* Only show timestamp for regular messages */}
-                        {!String(message.content).startsWith('created_offer::') &&
-                         !String(message.content).startsWith('created_listing::') &&
-                         !String(message.content).startsWith('proposal::') &&
-                         !String(message.content).startsWith('accepted_offer::') &&
-                         !String(message.content).startsWith('declined_offer::') &&
-                         !String(message.content).startsWith('purchased_listing::') && (
-                          <div className={`text-xs mt-1 ${
-                            isFromMe ? 'text-purple-200' : 'text-gray-400'
-                          }`}>
-                            {formatDistanceToNow(new Date(Number(message.sentAtNs) / 1_000_000), { addSuffix: true })}
+                          {/* Timestamp */}
+                          {!String(message.content).startsWith('created_offer::') &&
+                           !String(message.content).startsWith('created_listing::') &&
+                           !String(message.content).startsWith('proposal::') &&
+                           !String(message.content).startsWith('accepted_offer::') &&
+                           !String(message.content).startsWith('declined_offer::') &&
+                           !String(message.content).startsWith('purchased_listing::') && (
+                            <div className={`text-xs mt-1 ${
+                              isFromMe ? 'text-purple-200' : 'text-gray-400'
+                            }`}>
+                              {formatDistanceToNow(new Date(Number(message.sentAtNs) / 1_000_000), { addSuffix: true })}
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Display reactions BELOW the message bubble (1-to-1 style) */}
+                        {reactions.filter(r => r.messageId === message.id).length > 0 && (
+                          <div className={`flex gap-1 mt-1 flex-wrap ${isFromMe ? 'justify-end' : 'justify-start'}`}>
+                            {reactions
+                              .filter(r => r.messageId === message.id)
+                              .map((reaction) => {
+                                const isMyReaction = reaction.from === client?.inboxId;
+                                return (
+                                  <button
+                                    key={`${reaction.from}-${reaction.emoji}`}
+                                    onClick={() => isMyReaction && removeReaction(message.id, reaction.emoji)}
+                                    className={`px-2 py-0.5 rounded-full transition-all flex items-center gap-1 shadow-sm ${
+                                      isMyReaction 
+                                        ? 'bg-purple-600 border border-purple-500 hover:bg-purple-700 cursor-pointer' 
+                                        : 'bg-gray-800 border border-gray-600 cursor-default'
+                                    }`}
+                                    title={isMyReaction ? 'Click to remove your reaction' : 'Other person\'s reaction'}
+                                  >
+                                    <span className="text-base">{reaction.emoji}</span>
+                                  </button>
+                                );
+                              })}
                           </div>
                         )}
                       </div>

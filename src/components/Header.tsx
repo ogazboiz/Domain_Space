@@ -1,9 +1,7 @@
 "use client";
 
-import { useAppKitAccount, useAppKit } from "@reown/appkit/react";
-import { useDisconnect } from "@reown/appkit/react";
-import { useWalletInfo } from "@reown/appkit/react";
-import { useAccount, useDisconnect as useWagmiDisconnect } from "wagmi";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
+import { useAccount, useDisconnect } from "wagmi";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
@@ -14,18 +12,13 @@ export default function Header() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  // AppKit hooks
-  const { address: appkitAddress, isConnected: appkitIsConnected } = useAppKitAccount();
-  const { open, close } = useAppKit();
-  const { walletInfo } = useWalletInfo();
-  const { disconnect: appkitDisconnect } = useDisconnect();
+  // Privy hooks
+  const { ready, authenticated, user, login, logout } = usePrivy();
+  const { wallets } = useWallets();
 
   // Wagmi hooks
-  const { address: wagmiAddress, isConnected: wagmiIsConnected, connector } = useAccount();
-  const { disconnect: wagmiDisconnect } = useWagmiDisconnect();
-
-  const address = appkitAddress || wagmiAddress;
-  const isConnected = appkitIsConnected || wagmiIsConnected;
+  const { address, isConnected, connector } = useAccount();
+  const { disconnect } = useDisconnect();
 
   useEffect(() => setMounted(true), []);
 
@@ -45,7 +38,7 @@ export default function Header() {
 
   const handleConnect = async () => {
     try {
-      await open();
+      await login();
     } catch (error: unknown) {
       console.error("Connection error:", error instanceof Error ? error.message : String(error));
     }
@@ -61,35 +54,22 @@ export default function Header() {
 
     if (isDisconnecting) return; // Prevent multiple disconnect attempts
 
-    console.log("Disconnect button clicked"); // Debug log
-
     setIsDisconnecting(true);
     setIsWalletDropdownOpen(false);
 
     try {
-      // Disconnect from AppKit first
-      if (appkitIsConnected) {
-        console.log("Disconnecting AppKit...");
-        await appkitDisconnect();
+      // Disconnect from Privy
+      if (authenticated) {
+        await logout();
       }
 
-      // Then disconnect from Wagmi
-      if (wagmiIsConnected) {
-        console.log("Disconnecting Wagmi...");
-        await wagmiDisconnect();
-      }
-
-      // Force close AppKit modal if it's still open
-      try {
-        await close();
-      } catch (closeError) {
-        // Ignore close errors as modal might not be open
-        console.debug("AppKit modal close:", closeError);
+      // Disconnect from Wagmi
+      if (isConnected) {
+        await disconnect();
       }
 
       // Small delay to ensure cleanup
       await new Promise(resolve => setTimeout(resolve, 100));
-      console.log("Disconnect completed successfully");
 
     } catch (error: unknown) {
       console.error("Disconnect error:", error instanceof Error ? error.message : String(error));
@@ -172,7 +152,7 @@ export default function Header() {
                 <span className="text-white text-sm font-medium">Connecting...</span>
               </div>
             </div>
-          ) : isConnected && address ? (
+          ) : authenticated && address ? (
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={handleWalletButtonClick}
@@ -199,7 +179,7 @@ export default function Header() {
                       </svg>
                     </div>
                     <div>
-                      <p className="font-medium text-white">{walletInfo?.name || connector?.name || "Connected Wallet"}</p>
+                      <p className="font-medium text-white">{wallets[0]?.walletClientType || connector?.name || "Connected Wallet"}</p>
                       <p className="text-sm text-gray-400">{truncateAddress(address)}</p>
                     </div>
                   </div>

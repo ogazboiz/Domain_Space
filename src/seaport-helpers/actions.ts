@@ -36,7 +36,6 @@ export const executeAllActions = async <R>(
     );
   }
 
-  console.log({ actions });
 
   const preparedSteps = prepareActionSteps(actions);
   const progress = new Progress(preparedSteps, onProgress);

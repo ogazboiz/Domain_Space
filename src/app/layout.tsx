@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Inter, Bitter, Space_Mono } from "next/font/google";
 import "./globals.css";
-import { AppKit } from "../context/appkit";
-import { Providers } from "../context/providers";
+import { PrivyProviders } from "../context/privy";
+import { UsernameProvider } from "../contexts/UsernameContext";
+import { XMTPProvider } from "../contexts/XMTPContext";
 import { Toaster } from "sonner";
 
 const inter = Inter({
@@ -50,11 +51,13 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/favicon.ico?v=2" />
       </head>
       <body className={`${inter.className} antialiased`}>
-        <AppKit>
-          <Providers>
-            {children}
-          </Providers>
-        </AppKit>
+        <PrivyProviders>
+          <UsernameProvider>
+            <XMTPProvider>
+              {children}
+            </XMTPProvider>
+          </UsernameProvider>
+        </PrivyProviders>
         <Toaster
           theme="dark"
           position="bottom-right"

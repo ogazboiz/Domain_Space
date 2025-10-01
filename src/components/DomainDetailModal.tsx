@@ -5,9 +5,13 @@ import { Name } from "@/types/doma";
 import { useAccount } from "wagmi";
 import { useUsername } from "@/contexts/UsernameContext";
 import { X, MessageSquare, Eye, EyeOff, Share, Activity, DollarSign, CheckCircle, XCircle, Shield, Loader } from "lucide-react";
+import { toast } from "sonner";
 import { formatUnits } from "viem";
 import ImprovedXMTPChat from "./chat/ImprovedXMTPChat";
 import DialogCheckingDM from "./DialogCheckingDM";
+import { useOffers } from "@/data/use-doma";
+import { ChatAvatar } from "./ui/ChatAvatar";
+import { formatDistanceToNow } from "date-fns";
 
 interface DomainDetailModalProps {
   domain: Name | null;
@@ -32,7 +36,15 @@ export default function DomainDetailModal({
   const [isWatched, setIsWatched] = useState(false);
 
   const { address } = useAccount();
-  const { profile } = useUsername();
+  const { profile, watchDomain, unwatchDomain, isWatching } = useUsername();
+
+  // Fetch offers for this domain
+  const tokenId = domain?.tokens?.[0]?.tokenId || "";
+  const { data: offersData, isLoading: isLoadingOffers } = useOffers(tokenId, 10);
+  const offers = useMemo(() => {
+    if (!offersData?.pages) return [];
+    return offersData.pages.flatMap(page => page.items);
+  }, [offersData]);
 
   // Check if domain is watched
   useEffect(() => {
@@ -51,13 +63,13 @@ export default function DomainDetailModal({
 
   const handleMessage = async () => {
     if (!domain.claimedBy) {
-      alert("This domain is not owned by anyone yet.");
+      toast.error("This domain is not owned by anyone yet");
       return;
     }
 
     const ownerAddress = domain.claimedBy.split(':')[2];
     if (!ownerAddress) {
-      alert("Invalid owner address format.");
+      toast.error("Invalid owner address format");
       return;
     }
 
@@ -70,13 +82,25 @@ export default function DomainDetailModal({
     setShowCheckingDM(false);
   };
 
-  const handleWatch = () => {
+  const handleWatch = async () => {
     if (!address) {
-      alert("Connect your wallet to watch domains");
+      toast.error("Connect your wallet to watch domains");
       return;
     }
-    // TODO: Implement watch functionality
-    setIsWatched(!isWatched);
+
+    try {
+      if (isWatched) {
+        await unwatchDomain(domain.name);
+        toast.success(`Removed ${domain.name} from watchlist`);
+        setIsWatched(false);
+      } else {
+        await watchDomain(domain.name);
+        toast.success(`Added ${domain.name} to watchlist`);
+        setIsWatched(true);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update watchlist");
+    }
   };
 
   const handleShare = () => {
@@ -88,7 +112,7 @@ export default function DomainDetailModal({
       });
     } else {
       navigator.clipboard.writeText(window.location.href);
-      alert("Link copied to clipboard");
+      toast.success("Link copied to clipboard");
     }
   };
 
@@ -274,14 +298,14 @@ export default function DomainDetailModal({
                   <>
                     {hasListings ? (
                       <button
-                        onClick={() => alert(`Cancel Listing for ${domain.name}\n\nThis would cancel the current listing and remove the domain from the marketplace.`)}
+                        onClick={() => toast.info(`Cancel listing feature coming soon`)}
                         className="flex-1 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg transition-colors"
                       >
                         Cancel Listing
                       </button>
                     ) : (
                       <button
-                        onClick={() => alert(`List ${domain.name}\n\nThis would open a list domain dialog where you can set the price and list your domain for sale.`)}
+                        onClick={() => toast.info(`List domain feature coming soon`)}
                         className="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition-colors"
                       >
                         List Domain
@@ -313,10 +337,59 @@ export default function DomainDetailModal({
           )}
 
           {activeTab === 'offers' && (
-            <div className="text-center py-12">
-              <DollarSign className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-white mb-2">No Offers Yet</h3>
-              <p className="text-gray-400">Be the first to make an offer on this domain</p>
+            <div>
+              {isLoadingOffers ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader className="w-8 h-8 text-purple-500 animate-spin" />
+                  <span className="ml-3 text-gray-400">Loading offers...</span>
+                </div>
+              ) : offers.length === 0 ? (
+                <div className="text-center py-12">
+                  <DollarSign className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-white mb-2">No Offers Yet</h3>
+                  <p className="text-gray-400">Be the first to make an offer on this domain</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {offers.map((offer) => {
+                    // Extract address from CAIP-10 format (eip155:97476:0x...) to just 0x...
+                    const offerAddress = offer.offererAddress.includes(':') 
+                      ? offer.offererAddress.split(':')[2] 
+                      : offer.offererAddress;
+                    
+                    return (
+                      <div 
+                        key={offer.id} 
+                        className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg border border-gray-700/50 hover:border-purple-500/30 transition-colors"
+                      >
+                        <div className="flex items-center space-x-3">
+                          {/* Avatar instead of P1 */}
+                          <ChatAvatar 
+                            address={offerAddress} 
+                            size={40}
+                          />
+                          <div>
+                            <div className="text-white text-sm font-medium">
+                              {formatPrice(offer.price, offer.currency.decimals)} {offer.currency.symbol}
+                            </div>
+                            <div className="text-gray-400 text-xs">
+                              {offerAddress.slice(0, 6)}...{offerAddress.slice(-4)}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-gray-400 text-xs">
+                            {formatDistanceToNow(new Date(offer.createdAt), { addSuffix: true })}
+                          </div>
+                          <div className="text-purple-400 text-xs capitalize">
+                            {offer.orderbook}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 

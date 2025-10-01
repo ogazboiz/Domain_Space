@@ -64,12 +64,50 @@ export function useSelectedNames(
 ) {
   return useInfiniteQuery({
     queryKey: queryKeys.watchedNames(1, take, names, tlds || []),
-    queryFn: ({ pageParam = 1 }: { pageParam: number }) =>
-      dataService.getWatchedNames({
-        page: pageParam,
-        take,
-        name: names.join(""),
-      }),
+    queryFn: async ({ pageParam = 1 }: { pageParam: number }) => {
+      // If no names to watch, return empty result
+      if (!names || names.length === 0) {
+        return {
+          items: [],
+          pageSize: 0,
+          totalCount: 0,
+          hasNextPage: false,
+          hasPreviousPage: false,
+          currentPage: 1,
+          totalPages: 1,
+        };
+      }
+
+      // Fetch each domain individually
+      const domainPromises = names.map(name => 
+        dataService.getName({ name })
+      );
+
+      try {
+        const domains = await Promise.all(domainPromises);
+        
+        return {
+          items: domains.filter(d => d !== null),
+          pageSize: domains.length,
+          totalCount: domains.length,
+          hasNextPage: false,
+          hasPreviousPage: false,
+          currentPage: 1,
+          totalPages: 1,
+        };
+      } catch (error) {
+        console.error('Error fetching watched domains:', error);
+        return {
+          items: [],
+          pageSize: 0,
+          totalCount: 0,
+          hasNextPage: false,
+          hasPreviousPage: false,
+          currentPage: 1,
+          totalPages: 1,
+        };
+      }
+    },
     getNextPageParam: (lastPage) => {
       return lastPage.hasNextPage ? lastPage.currentPage + 1 : undefined;
     },
@@ -77,6 +115,7 @@ export function useSelectedNames(
       return firstPage.hasPreviousPage ? firstPage.currentPage - 1 : undefined;
     },
     initialPageParam: 1,
+    enabled: names && names.length > 0,
   });
 }
 

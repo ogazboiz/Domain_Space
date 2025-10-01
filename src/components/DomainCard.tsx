@@ -98,7 +98,7 @@ const DomainCard = ({
 
   return (
     <div
-      className="flex flex-col transition-all duration-300 w-full max-w-sm group hover:scale-105 bg-gray-900/50 rounded-xl border border-gray-700 hover:border-purple-500/50 hover:bg-gray-800/50 cursor-pointer"
+      className="flex flex-col transition-all duration-300 w-full max-w-sm group hover:scale-105 bg-gray-900/50 rounded-xl border border-gray-700 hover:border-purple-500/50 hover:bg-gray-800/50 cursor-pointer relative"
       style={{
         minHeight: '280px',
         padding: '20px 16px',
@@ -107,9 +107,20 @@ const DomainCard = ({
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => onClick?.(domain)}
     >
+      {/* Watchlist Button - Top Right */}
+      <button
+        onClick={handleWatchClick}
+        className="absolute top-3 right-3 z-10 transition-all duration-200 hover:scale-110"
+        title={isWatched?.(domain.name) ? 'Remove from watchlist' : 'Add to watchlist'}
+      >
+        <span className={`text-2xl ${isWatched?.(domain.name) ? 'opacity-100' : 'opacity-40 group-hover:opacity-70'}`}>
+          {isWatched?.(domain.name) ? '⭐' : '☆'}
+        </span>
+      </button>
+
       {/* Header Section */}
       <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center space-x-3 flex-1 min-w-0">
+        <div className="flex items-center space-x-3 flex-1 min-w-0 pr-8">
           <DomainAvatar
             domain={domain.name}
             className="w-8 h-8 flex-shrink-0"
@@ -159,25 +170,6 @@ const DomainCard = ({
               })()}
             </h3>
           </div>
-        </div>
-        <div className="text-right flex-shrink-0 ml-2">
-          {isListed ? (
-            <>
-              <p className="text-white text-sm font-semibold">
-                {formatPrice(listing.price, listing.currency.decimals)} {listing.currency.symbol}
-              </p>
-              <p className="text-gray-400 text-xs">Listed</p>
-            </>
-          ) : (
-            <>
-              <p className="text-white text-sm font-semibold">
-                {isOwned ? 'Owned' : 'Available'}
-              </p>
-              <p className="text-gray-400 text-xs">
-                {isOwned ? 'Offer' : 'Claim'}
-              </p>
-            </>
-          )}
         </div>
       </div>
 
@@ -295,11 +287,10 @@ const DomainCard = ({
                 </button>
               )}
 
-              {/* Message Button - Only show if not owned by user */}
+              {/* Message and Watch Buttons Row */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  console.log('Message button clicked for domain:', domain.name, 'owner:', domain.claimedBy);
                   onMessage?.(domain);
                 }}
                 className="text-white hover:bg-white/10 transition-colors font-medium text-xs w-full"
@@ -313,7 +304,7 @@ const DomainCard = ({
                   backgroundColor: 'transparent'
                 }}
               >
-                💬 Message Owner
+                💬 Message
               </button>
             </>
           )}

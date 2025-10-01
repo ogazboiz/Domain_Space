@@ -1,16 +1,9 @@
-import { cookieStorage, createStorage } from '@wagmi/core'
-import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
-import { sepolia } from '@reown/appkit/networks'
-
-// Get projectId from environment variable or use fallback
-export const projectId = process.env.NEXT_PUBLIC_PROJECT_ID || "1922d8f34388fb1c3b3553c342d31094"
-
-if (!projectId) {
-  throw new Error('Project ID is not defined')
-}
+import { http, createConfig, cookieStorage, createStorage } from 'wagmi'
+import { sepolia } from 'viem/chains'
+import type { Chain } from 'viem'
 
 // Custom Doma Testnet configuration
-const domaTestnet = {
+export const domaTestnet: Chain = {
   id: 97476,
   name: "Doma Testnet",
   nativeCurrency: {
@@ -34,14 +27,15 @@ const domaTestnet = {
 
 export const networks = [sepolia, domaTestnet]
 
-// Set up the Wagmi Adapter (Config)
-export const wagmiAdapter = new WagmiAdapter({
-  storage: createStorage({
-    storage: cookieStorage
-  }),
+// Set up the Wagmi Config for Privy
+export const config = createConfig({
+  chains: [sepolia, domaTestnet],
+  transports: {
+    [sepolia.id]: http(),
+    [domaTestnet.id]: http(),
+  },
   ssr: true,
-  projectId,
-  networks
+  storage: createStorage({
+    storage: cookieStorage,
+  }),
 })
-
-export const config = wagmiAdapter.wagmiConfig

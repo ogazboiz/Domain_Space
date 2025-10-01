@@ -46,7 +46,6 @@ export class BuyListingHandler extends SeaportOperationHandler<
         status: result.status === 1 ? "success" : "reverted",
       };
     } catch (error) {
-      console.log({ error });
 
       throw DomaOrderbookError.fromError(
         error,

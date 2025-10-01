@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from "react";
 import { Client, type Signer } from "@xmtp/browser-sdk";
+import { ReactionCodec } from "@xmtp/content-type-reaction";
 import { toBytes } from "viem";
 import { useAccount, useSignMessage } from "wagmi";
 
@@ -50,7 +51,6 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
   const connectXmtpCore = useCallback(async () => {
     if (!address) return;
 
-    console.log('🔄 Connecting to XMTP...');
 
     const canMessage = await Client.canMessage([
       { identifier: address as string, identifierKind: "Ethereum" },
@@ -60,14 +60,18 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
       // User is already registered - build existing client (reuses existing inbox)
       const existingClient = await Client.build(
         { identifier: address as string, identifierKind: "Ethereum" },
-        { env: "dev" }
+        { 
+          env: "dev",
+          codecs: [new ReactionCodec()]
+        }
       );
       setClient(existingClient);
-      console.log("✅ Built existing XMTP client");
     } else {
       // User not registered - create new client
-      const newClient = await Client.create(signer, { env: "dev" });
-      console.log("✅ Created new XMTP client");
+      const newClient = await Client.create(signer, { 
+        env: "dev",
+        codecs: [new ReactionCodec()]
+      });
       setClient(newClient);
     }
   }, [address, signer]);
@@ -80,7 +84,6 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
 
     try {
-      console.log('🔄 Using static revocation method from XMTP docs...');
 
       // Step 1: We need to find the inbox ID for this address
       // According to docs, we can use Client.inboxStateFromInboxIds but we need the inbox ID first
@@ -91,7 +94,6 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
         identifierKind: "Ethereum" as const
       };
 
-      console.log('🔍 Checking if address is registered with XMTP:', address);
 
       // Check if this identity can receive messages (has an existing inbox)
       const canMessage = await Client.canMessage([identifier], "dev");
@@ -99,7 +101,7 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
         throw new Error('This address is not registered with XMTP. No installations to revoke.');
       }
 
-      console.log('✅ Address is registered with XMTP');
+('✅ Address is registered with XMTP');
 
       // The challenge: We need inbox ID but can't create client at 10/10 limit
       // Try using a workaround by attempting static methods first
@@ -108,7 +110,7 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
 
       // Method: Try to extract inbox ID using static methods
       try {
-        console.log('🔄 Attempting static inbox ID discovery...');
+('🔄 Attempting static inbox ID discovery...');
 
         // This is a limitation - we may need to provide the inbox ID manually
         // or use a different approach. For now, let's try to get it from error messages
@@ -117,18 +119,18 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
         try {
           const tempClient = await Client.create(signer, { env: "dev" });
           inboxId = tempClient.inboxId || null;
-          console.log('✅ Unexpectedly got inbox ID from create:', inboxId);
+('✅ Unexpectedly got inbox ID from create:', inboxId);
         } catch (createError) {
-          console.log('Create failed as expected:', createError);
+('Create failed as expected:', createError);
 
           // Try to extract inbox ID from error message if possible
           const errorStr = String(createError);
           const inboxIdMatch = errorStr.match(/InboxID\s+([a-f0-9]+)/i);
           if (inboxIdMatch) {
             inboxId = inboxIdMatch[1];
-            console.log('✅ Extracted inbox ID from error:', inboxId);
+('✅ Extracted inbox ID from error:', inboxId);
           } else {
-            console.log('❌ Could not extract inbox ID from error');
+('❌ Could not extract inbox ID from error');
             throw new Error(
               'Cannot extract inbox ID at 10/10 limit. Try:\n' +
               '1. Clear browser data and reconnect\n' +
@@ -147,10 +149,10 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
         throw new Error('Could not determine inbox ID for static revocation');
       }
 
-      console.log(`📍 Using inbox ID: ${inboxId}`);
+(`📍 Using inbox ID: ${inboxId}`);
 
       // Step 2: Get inbox states using static method (this should work)
-      console.log('🔄 Getting inbox states using static method...');
+('🔄 Getting inbox states using static method...');
       const inboxStates = await Client.inboxStateFromInboxIds([inboxId], "dev");
 
       if (!inboxStates || inboxStates.length === 0) {
@@ -158,7 +160,7 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
       }
 
       const installations = inboxStates[0].installations;
-      console.log(`📦 Found ${installations.length} installations to revoke`);
+(`📦 Found ${installations.length} installations to revoke`);
 
       if (installations.length === 0) {
         throw new Error('No installations found to revoke');
@@ -167,7 +169,7 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
       // Step 3: Revoke ALL installations except current (as per docs)
       const toRevokeInstallationBytes = installations.map((i) => i.bytes);
 
-      console.log(`🗑️ Revoking ${installations.length} installations using static method...`);
+(`🗑️ Revoking ${installations.length} installations using static method...`);
 
       // Step 4: Use static revocation method exactly as in docs
       await Client.revokeInstallations(
@@ -177,10 +179,10 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
         "dev"
       );
 
-      console.log('✅ Successfully revoked installations using static method');
+('✅ Successfully revoked installations using static method');
 
       // Step 5: Try to connect fresh client
-      console.log('🔄 Attempting to create fresh client...');
+('🔄 Attempting to create fresh client...');
       await connectXmtpCore();
 
     } catch (err) {
@@ -202,37 +204,37 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
         identifierKind: "Ethereum" as const
       };
 
-      console.log('🔍 Getting installation info for:', address);
+('🔍 Getting installation info for:', address);
 
       // Check if this identity can receive messages (has an existing inbox)
       const canMessage = await Client.canMessage([identifier], "dev");
       if (!canMessage.get(address.toLowerCase())) {
-        console.log('❌ Address not registered with XMTP');
+('❌ Address not registered with XMTP');
         return { count: 0, installations: [] };
       }
 
-      console.log('✅ Address is registered with XMTP');
+('✅ Address is registered with XMTP');
 
       // Try different approaches to get inbox ID
       let inboxId: string | null = null;
 
       // Method 1: Try to build existing client (might fail at limit)
       try {
-        console.log('🔄 Trying to build existing client...');
+('🔄 Trying to build existing client...');
         const existingClient = await Client.build(identifier, { env: "dev" });
         inboxId = existingClient.inboxId || null;
-        console.log('✅ Got inbox ID from existing client:', inboxId);
+('✅ Got inbox ID from existing client:', inboxId);
       } catch (buildError) {
-        console.log('❌ Build failed (probably at limit):', buildError);
+('❌ Build failed (probably at limit):', buildError);
 
         // Method 2: Try to create client to get inbox ID (risky but sometimes works)
         try {
-          console.log('🔄 Trying to create client to get inbox ID...');
+('🔄 Trying to create client to get inbox ID...');
           const tempClient = await Client.create(signer, { env: "dev" });
           inboxId = tempClient.inboxId || null;
-          console.log('✅ Got inbox ID from new client:', inboxId);
+('✅ Got inbox ID from new client:', inboxId);
         } catch (createError) {
-          console.log('❌ Create also failed:', createError);
+('❌ Create also failed:', createError);
           // At this point we know we're at the limit but can't get details
           return {
             count: 10,
@@ -243,16 +245,16 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (!inboxId) {
-        console.log('❌ Could not get inbox ID');
+('❌ Could not get inbox ID');
         return { count: 10, installations: [], error: 'Could not retrieve inbox ID' };
       }
 
       // Get installation details using the inbox ID
-      console.log('🔄 Getting inbox states for:', inboxId);
+('🔄 Getting inbox states for:', inboxId);
       const inboxStates = await Client.inboxStateFromInboxIds([inboxId], "dev");
       const installations = inboxStates[0].installations;
 
-      console.log('✅ Found', installations.length, 'installations');
+('✅ Found', installations.length, 'installations');
 
       return {
         count: installations.length,
@@ -282,7 +284,7 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
 
     try {
-      console.log('🔄 Revoking specific installations:', installationIds);
+('🔄 Revoking specific installations:', installationIds);
 
       const identifier = {
         identifier: address as string,
@@ -311,7 +313,7 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
 
       const toRevokeInstallationBytes = toRevokeInstallations.map((i) => i.bytes);
 
-      console.log(`Revoking ${toRevokeInstallations.length} specific installations...`);
+(`Revoking ${toRevokeInstallations.length} specific installations...`);
 
       // Use static revocation
       await Client.revokeInstallations(
@@ -321,7 +323,7 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
         "dev"
       );
 
-      console.log('✅ Specific installations revoked successfully');
+('✅ Specific installations revoked successfully');
 
       // Try to reconnect
       await connectXmtpCore();
@@ -337,7 +339,7 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
 
   // Clear local browser data for XMTP
   const clearLocalData = useCallback(() => {
-    console.log('🧹 Clearing XMTP local data...');
+('🧹 Clearing XMTP local data...');
     try {
       // Clear localStorage keys related to XMTP
       const keysToRemove = [];
@@ -353,7 +355,7 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
       setError(null);
       setIsLoading(false);
 
-      console.log('✅ Local XMTP data cleared. Please refresh the page and try connecting again.');
+('✅ Local XMTP data cleared. Please refresh the page and try connecting again.');
       alert('XMTP local data cleared. Please refresh the page and try connecting again.');
     } catch (err) {
       console.error('Failed to clear local data:', err);
@@ -363,7 +365,7 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
 
   // Reset XMTP completely
   const resetXmtp = useCallback(() => {
-    console.log('🔄 Resetting XMTP context completely');
+('🔄 Resetting XMTP context completely');
     setClient(null);
     setIsLoading(false);
     setError(null);

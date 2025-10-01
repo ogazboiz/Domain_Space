@@ -10,7 +10,9 @@ import { useAccount, useAccountEffect } from "wagmi";
 // import { useHelper } from "@/hooks/use-helper";
 import { useUsername } from "@/contexts/UsernameContext";
 import { useXMTPContext } from "@/contexts/XMTPContext";
+import { toast } from "sonner";
 import { DomainAvatar } from '@/components/ui/DomainAvatar';
+import { ChatAvatar } from '@/components/ui/ChatAvatar';
 import DomainCard from "./DomainCard";
 import MessagingModal from "./MessagingModal";
 import DomainDetailPage from "./DomainDetailPage";
@@ -90,7 +92,6 @@ const TabNavigation = ({ tabs, activeTab, setActiveTab }: {
         <button 
           key={tab.id}
           onClick={() => {
-            console.log('Tab clicked:', tab.id);
             setActiveTab(tab.id);
           }}
           className={`flex items-center space-x-2 px-6 py-4 transition-all duration-200 rounded-t-lg relative -ml-2 hover:bg-gray-800/50 ${
@@ -211,7 +212,7 @@ const ChatDomainSearchBar = ({
                 <button
                   key={domain.name}
                   onClick={() => {
-                    console.log('🖱️ Domain dropdown clicked:', domain.name, domain.claimedBy);
+('🖱️ Domain dropdown clicked:', domain.name, domain.claimedBy);
                     setShowResults(false);
                     onDomainClick(domain);
                   }}
@@ -450,7 +451,9 @@ const DomainGrid = ({
   userAddress,
   onDomainClick,
   forceOwned = false,
-  isFullscreen = false
+  isFullscreen = false,
+  onWatch,
+  isWatched
 }: {
   domains: Name[];
   formatPrice: (price: string, decimals: number) => string;
@@ -465,6 +468,8 @@ const DomainGrid = ({
   onDomainClick?: (domain: Name) => void;
   forceOwned?: boolean;
   isFullscreen?: boolean;
+  onWatch?: (domain: Name) => void;
+  isWatched?: (domainName: string) => boolean;
 }) => (
   <div className={`grid justify-items-center ${
     isFullscreen
@@ -486,6 +491,8 @@ const DomainGrid = ({
         userAddress={userAddress}
         onClick={onDomainClick}
         forceOwned={forceOwned}
+        onWatch={onWatch}
+        isWatched={isWatched}
       />
     ))}
   </div>
@@ -528,22 +535,9 @@ export default function DomainMarketplace() {
 
   const { address } = useAccount();
   // Portfolio value formatting handled inline
-  const { profile } = useUsername();
+  const { profile, watchedDomains, watchDomain, unwatchDomain, isWatching } = useUsername();
   const { client, setClient, connectXmtp, resetXmtp } = useXMTPContext();
 
-  // Transaction success handler
-  const handleTransactionSuccess = useCallback((type: 'buy' | 'offer', domain: Name, result: unknown) => {
-    console.log(`${type} transaction successful for ${domain.name}:`, result);
-
-    if (type === 'buy') {
-      alert(`🎉 Successfully purchased ${domain.name}!\n\nTransaction completed. The domain is now yours.`);
-    } else {
-      alert(`💰 Successfully created offer for ${domain.name}!\n\nYour offer has been submitted and the owner will be notified.`);
-    }
-
-    // Optional: Refresh the domain list to show updated data
-    // You can implement this by calling a refetch function if available
-  }, []);
 
   // Memoized filter parameters for API calls
   // const browseFilterParams = useMemo(() => ({
@@ -659,6 +653,7 @@ export default function DomainMarketplace() {
     selectedCategory === "all" ? null : [selectedCategory]
   );
 
+
   const {
     data: watchedDomainsData,
     isLoading: isLoadingWatched,
@@ -669,6 +664,7 @@ export default function DomainMarketplace() {
     30,
     selectedCategory === "all" ? null : [selectedCategory]
   );
+
 
   // Memoized domain processing with price sorting
   const browseDomains = useMemo(() => {
@@ -733,7 +729,8 @@ export default function DomainMarketplace() {
   const {
     data: offersData,
     isLoading: isLoadingOffers,
-    error: offersError
+    error: offersError,
+    refetch: refetchOffers
   } = useOffers(20, selectedDomainData?.tokens?.[0]?.tokenId || "");
 
   // Process offers data
@@ -752,6 +749,23 @@ export default function DomainMarketplace() {
     });
   }, [offers]);
 
+  // Transaction success handler
+  const handleTransactionSuccess = useCallback((type: 'buy' | 'offer', domain: Name, result: unknown) => {
+    if (type === 'buy') {
+      toast.success(`Successfully purchased ${domain.name}!`, {
+        description: 'Transaction completed. The domain is now yours.',
+        duration: 5000,
+      });
+    } else {
+      toast.success(`Successfully created offer for ${domain.name}!`, {
+        description: 'Your offer has been submitted and the owner will be notified.',
+        duration: 5000,
+      });
+      // Refresh offers after creating a new offer
+      refetchOffers();
+    }
+  }, [refetchOffers]);
+
   // Keep track of previous address to detect actual changes
   const prevAddressRef = useRef<string | undefined>(address);
 
@@ -762,10 +776,10 @@ export default function DomainMarketplace() {
 
     // Detect actual address change (not just undefined to address or vice versa)
     if (prevAddress && currentAddress && prevAddress !== currentAddress) {
-      console.log('🔄 Address switched from', prevAddress, 'to', currentAddress);
+('🔄 Address switched from', prevAddress, 'to', currentAddress);
 
       if (activeTab === "myspace" || activeTab === "chat") {
-        console.log('🔄 Reloading data for myspace/chat tabs due to address switch');
+('🔄 Reloading data for myspace/chat tabs due to address switch');
 
         // Reset myspace tab states
         if (activeTab === "myspace") {
@@ -775,7 +789,7 @@ export default function DomainMarketplace() {
 
         // Reset chat states and force XMTP reconnection
         if (activeTab === "chat") {
-          console.log('🔄 Resetting XMTP for address switch:', currentAddress);
+('🔄 Resetting XMTP for address switch:', currentAddress);
 
           // Reset XMTP context completely
           resetXmtp();
@@ -787,7 +801,7 @@ export default function DomainMarketplace() {
 
           // Trigger reconnection after a brief delay to ensure clean state
           setTimeout(() => {
-            console.log('🔄 Reconnecting XMTP for new address:', currentAddress);
+('🔄 Reconnecting XMTP for new address:', currentAddress);
             connectXmtp();
           }, 200);
         }
@@ -806,7 +820,7 @@ export default function DomainMarketplace() {
   // Handle wallet disconnect (when address becomes undefined)
   useAccountEffect({
     onDisconnect() {
-      console.log('🔄 Wallet disconnected, clearing all data');
+('🔄 Wallet disconnected, clearing all data');
 
       // Reset XMTP completely
       resetXmtp();
@@ -825,14 +839,14 @@ export default function DomainMarketplace() {
 
   // Debug logging
   useEffect(() => {
-    console.log('🔍 Browse domains status:', {
+('🔍 Browse domains status:', {
       isLoading: isLoadingBrowse,
       error: browseError?.message,
       domainsCount: browseDomains.length,
       apiUrl: process.env.NEXT_PUBLIC_DOMA_GRAPHQL_URL
     });
   }, [isLoadingBrowse, browseError, browseDomains.length]);
-  console.log('Browse Domains Debug:', {
+('Browse Domains Debug:', {
     browseDomainsData,
     browseDomains: browseDomains.length,
     totalBrowseCount,
@@ -842,7 +856,7 @@ export default function DomainMarketplace() {
     tldFilter
   });
 
-  console.log('Offers Debug:', {
+('Offers Debug:', {
     tokenId: selectedDomainData?.tokens?.[0]?.tokenId,
     offersData,
     offers: offers.length,
@@ -898,23 +912,19 @@ export default function DomainMarketplace() {
   }, []);
 
   const handleMessage = useCallback(async (domain: Name) => {
-    console.log('🚀 handleMessage called with domain:', domain);
     if (!domain.claimedBy) {
-      console.log('❌ Domain not claimed, showing alert');
-      alert("This domain is not owned by anyone yet.");
+      toast.error("This domain is not owned by anyone yet.");
       return;
     }
 
     // Extract address from CAIP-10 format (eip155:1:0x...)
     const ownerAddress = domain.claimedBy.split(':')[2];
-    console.log('📍 Extracted owner address:', ownerAddress);
     if (!ownerAddress) {
-      console.log('❌ Invalid owner address format');
-      alert("Invalid owner address format.");
+      toast.error("Invalid owner address format.");
       return;
     }
 
-    console.log('✅ Starting conversation with domain owner:', ownerAddress);
+('✅ Starting conversation with domain owner:', ownerAddress);
     
     // Set the owner address and switch to chat tab immediately
     setSelectedUserAddress(ownerAddress);
@@ -951,22 +961,39 @@ export default function DomainMarketplace() {
     setShowCancelListingModal(true);
   }, []);
 
+  const handleWatch = useCallback((domain: Name) => {
+    if (!address) {
+      toast.error("Connect your wallet to watch domains");
+      return;
+    }
+    
+    const isCurrentlyWatched = isWatching(domain.name);
+    
+    if (isCurrentlyWatched) {
+      unwatchDomain(domain.name);
+      toast.success(`Removed ${domain.name} from watchlist`);
+    } else {
+      watchDomain(domain.name);
+      toast.success(`Added ${domain.name} to watchlist`);
+    }
+  }, [address, isWatching, unwatchDomain, watchDomain]);
+
   const handleListingSuccess = useCallback((domain: Name) => {
     // Close modal and clear state - data will refresh automatically
     setShowListModal(false);
     setDomainToList(null);
-    console.log(`Domain ${domain.name} listed successfully`);
+(`Domain ${domain.name} listed successfully`);
   }, []);
 
   const handleCancelListingSuccess = useCallback((domain: Name) => {
     // Close modal and clear state - data will refresh automatically
     setShowCancelListingModal(false);
     setDomainToList(null);
-    console.log(`Listing for ${domain.name} canceled successfully`);
+(`Listing for ${domain.name} canceled successfully`);
   }, []);
 
   const handleDMCreated = useCallback((dmId: string, userAddress: string) => {
-    console.log('DM created successfully:', { dmId, userAddress });
+('DM created successfully:', { dmId, userAddress });
     // Switch to chat tab to show the new conversation
     setActiveTab("chat");
     // You can add additional logic here to highlight the new conversation
@@ -975,7 +1002,7 @@ export default function DomainMarketplace() {
   // Listen for conversation created events from DialogCheckingDM
   useEffect(() => {
     const handleConversationCreated = (event: CustomEvent) => {
-      console.log('📨 Received conversationCreated event:', event.detail);
+('📨 Received conversationCreated event:', event.detail);
       const { conversationId, userAddress } = event.detail;
       
       // Switch to chat tab and set the selected user address
@@ -1002,37 +1029,35 @@ export default function DomainMarketplace() {
 
   // Handle manual conversation selection - clear selectedUserAddress to prevent auto-switching back
   const handleManualConversationSelect = useCallback(() => {
-    console.log('🔄 User manually selected a conversation, clearing selectedUserAddress');
+('🔄 User manually selected a conversation, clearing selectedUserAddress');
     setSelectedUserAddress('');
     setShowCheckingDM(false); // Also close any open checking dialog
   }, []);
 
-  // Handle domain search in chat tab (following domainline pattern)
   const handleChatDomainMessage = useCallback((domain: Name) => {
     if (!domain.claimedBy) {
-      alert("This domain is not owned by anyone yet.");
+      toast.error("This domain is not owned by anyone yet.");
       return;
     }
 
     // Extract address from CAIP-10 format (eip155:1:0x...)
     const ownerAddress = domain.claimedBy.split(':')[2];
     if (!ownerAddress) {
-      alert("Invalid owner address format.");
+      toast.error("Invalid owner address format.");
       return;
     }
 
-    console.log('🔄 Domain clicked for messaging:', {
+('🔄 Domain clicked for messaging:', {
       domainName: domain.name,
       ownerAddress: ownerAddress
     });
     
-    // Set the owner address and show checking dialog (domainline pattern)
     setSelectedUserAddress(ownerAddress);
     setShowCheckingDM(true);
     setChatDomainSearchQuery('');
     setShowChatDomainSearch(false);
     
-    console.log('✅ Opening XMTP check dialog for user:', ownerAddress);
+('✅ Opening XMTP check dialog for user:', ownerAddress);
   }, []);
 
   // Click outside handler for chat domain search dropdown
@@ -1052,7 +1077,7 @@ export default function DomainMarketplace() {
   // Clear selectedUserAddress when switching away from chat tab
   useEffect(() => {
     if (activeTab !== "chat") {
-      console.log('🔄 Switched away from chat tab, clearing selectedUserAddress');
+('🔄 Switched away from chat tab, clearing selectedUserAddress');
       setSelectedUserAddress('');
       setShowCheckingDM(false);
     }
@@ -1528,23 +1553,28 @@ export default function DomainMarketplace() {
                           </div>
                         ) : (
                           <div className="space-y-3">
-                            {offers.slice(0, 5).map((offer, index) => (
-                              <div key={offer.id} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg border border-gray-700/50">
-                                <div className="flex items-center space-x-3">
-                                  <div className="w-8 h-8 bg-purple-500/20 rounded-full flex items-center justify-center">
-                                    <span className="text-purple-400 text-xs font-bold">
-                                      {offer.offererAddress.slice(2, 4).toUpperCase()}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    <div className="text-white text-sm font-medium">
-                                      {formatPrice(offer.price, offer.currency.decimals)} {offer.currency.symbol}
+                            {offers.slice(0, 5).map((offer, index) => {
+                              // Extract address from CAIP-10 format (eip155:97476:0x...) to just 0x...
+                              const offerAddress = offer.offererAddress.includes(':') 
+                                ? offer.offererAddress.split(':')[2] 
+                                : offer.offererAddress;
+                              
+                              return (
+                                <div key={offer.id} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg border border-gray-700/50">
+                                  <div className="flex items-center space-x-3">
+                                    <ChatAvatar 
+                                      address={offerAddress}
+                                      size={32}
+                                    />
+                                    <div>
+                                      <div className="text-white text-sm font-medium">
+                                        {formatPrice(offer.price, offer.currency.decimals)} {offer.currency.symbol}
+                                      </div>
+                                      <div className="text-gray-400 text-xs">
+                                        {offerAddress.slice(0, 6)}...{offerAddress.slice(-4)}
+                                      </div>
                                     </div>
-                                    <div className="text-gray-400 text-xs">
-                                      {offer.offererAddress.slice(0, 6)}...{offer.offererAddress.slice(-4)}
-                                    </div>
                                   </div>
-                                </div>
                                 <div className="text-right">
                                   <div className="text-gray-400 text-xs">
                                     {(() => {
@@ -1561,7 +1591,8 @@ export default function DomainMarketplace() {
                                   )}
                                 </div>
                               </div>
-                            ))}
+                              );
+                            })}
                             {offers.length > 5 && (
                               <div className="text-center py-2">
                                 <span className="text-gray-400 text-sm">
@@ -1738,9 +1769,10 @@ export default function DomainMarketplace() {
                   }}>
                     <h3 className="text-lg font-bold mb-4">Domain Owner</h3>
                     <div className="flex items-center space-x-3 mb-4">
-                      <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center">
-                        <span className="text-xl">👤</span>
-                      </div>
+                      <ChatAvatar 
+                        address={domainToShow.claimedBy?.split(':')[2] || ''}
+                        size={48}
+                      />
                       <div className="flex-1">
                         <div className="font-medium text-white font-mono text-sm">
                           {domainToShow.claimedBy?.split(':')[2]?.substring(0, 8)}...
@@ -1809,9 +1841,26 @@ export default function DomainMarketplace() {
                       <span className="text-xl">🔗</span>
                       <span>Share Domain</span>
                     </button>
-                    <button className="w-full flex items-center space-x-3 text-gray-400 hover:text-white transition-colors py-2 px-3 rounded-lg hover:bg-gray-700/50">
+                    <button
+                      onClick={() => {
+                        if (!address) {
+                          toast.error("Connect your wallet to watch domains");
+                          return;
+                        }
+                        if (selectedDomain) {
+                          if (isWatching(selectedDomain.name)) {
+                            unwatchDomain(selectedDomain.name);
+                            toast.success(`Removed ${selectedDomain.name} from watchlist`);
+                          } else {
+                            watchDomain(selectedDomain.name);
+                            toast.success(`Added ${selectedDomain.name} to watchlist`);
+                          }
+                        }
+                      }}
+                      className="w-full flex items-center space-x-3 text-gray-400 hover:text-white transition-colors py-2 px-3 rounded-lg hover:bg-gray-700/50"
+                    >
                       <span className="text-xl">⭐</span>
-                      <span>Add to Watchlist</span>
+                      <span>{selectedDomain && isWatching(selectedDomain.name) ? 'Remove from Watchlist' : 'Add to Watchlist'}</span>
                     </button>
                   </div>
                 </div>
@@ -1876,6 +1925,8 @@ export default function DomainMarketplace() {
                     userAddress={address}
                     onDomainClick={handleDomainClick}
                     isFullscreen={isFullscreenMode}
+                    onWatch={handleWatch}
+                    isWatched={isWatching}
                   />
                   
                   {hasNextBrowse && (
@@ -2039,6 +2090,8 @@ export default function DomainMarketplace() {
                             onDomainClick={handleOwnedDomainClick}
                             forceOwned={true}
                             isFullscreen={isFullscreenMode}
+                            onWatch={handleWatch}
+                            isWatched={isWatching}
                           />
                           {hasNextOwned && (
                             <LoadMoreButton onClick={fetchNextOwnedPage} text="Load More Domains" />
@@ -2093,6 +2146,8 @@ export default function DomainMarketplace() {
                             userAddress={address}
                             onDomainClick={handleDomainClick}
                             isFullscreen={isFullscreenMode}
+                            onWatch={handleWatch}
+                            isWatched={isWatching}
                           />
                           {hasNextWatched && (
                             <LoadMoreButton onClick={fetchNextWatchedPage} text="Load More Watched Domains" />
@@ -2106,7 +2161,7 @@ export default function DomainMarketplace() {
           </div>
         );
       case "chat":
-        console.log('Rendering chat tab with selectedUserAddress:', selectedUserAddress);
+('Rendering chat tab with selectedUserAddress:', selectedUserAddress);
         return (
           <div className="h-full w-full">
             <ImprovedXMTPChat
