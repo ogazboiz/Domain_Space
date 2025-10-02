@@ -191,7 +191,7 @@ export default function Features() {
               const marketplace = document.getElementById('marketplace-section');
               if (marketplace) marketplace.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="bg-white text-black px-6 sm:px-8 py-3 sm:py-4 rounded-full font-semibold text-base sm:text-lg hover:bg-gray-100 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 w-full sm:w-auto max-w-xs sm:max-w-none"
+            className="bg-white text-black px-6 sm:px-8 py-3 sm:py-4 rounded-full font-semibold text-base sm:text-lg hover:bg-gray-100 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 lg:w-full w-auto lg:max-w-xs max-w-none"
             style={{
               fontFamily: 'var(--font-space-mono), monospace'
             }}

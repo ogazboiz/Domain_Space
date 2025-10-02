@@ -44,12 +44,48 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
   const [messages, setMessages] = useState<DecodedMessage[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null) // messageId for which picker is shown
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null)
+  const [isLongPressing, setIsLongPressing] = useState(false)
   
   // Reactions hook
   const { reactions, addReaction, removeReaction, loadReactions } = useReactions(
     client,
     activeConversation
   )
+
+  // Mobile long press handlers
+  const handleTouchStart = useCallback((messageId: string) => {
+    const timer = setTimeout(() => {
+      setShowEmojiPicker(messageId)
+      setIsLongPressing(true)
+    }, 500) // 500ms long press
+    setLongPressTimer(timer)
+  }, [])
+
+  const handleTouchEnd = useCallback(() => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer)
+      setLongPressTimer(null)
+    }
+    setIsLongPressing(false)
+  }, [longPressTimer])
+
+  const handleTouchMove = useCallback(() => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer)
+      setLongPressTimer(null)
+    }
+    setIsLongPressing(false)
+  }, [longPressTimer])
+
+  // Cleanup long press timer on unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer)
+      }
+    }
+  }, [longPressTimer])
   const [newConversationAddress, setNewConversationAddress] = useState(defaultPeerAddress && defaultPeerAddress.trim() ? defaultPeerAddress : '')
   const [isSendingMessage, setIsSendingMessage] = useState(false)
   const [showNewConversation, setShowNewConversation] = useState(false)
@@ -1635,8 +1671,17 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                                       : 'bg-gray-700 text-gray-100 rounded-bl-md'
                                   }`
                             }`}
+                            onTouchStart={() => {
+                              if (!String(message.content).startsWith('created_offer::') &&
+                                  !String(message.content).startsWith('created_listing::') &&
+                                  !String(message.content).startsWith('proposal::')) {
+                                handleTouchStart(message.id)
+                              }
+                            }}
+                            onTouchEnd={handleTouchEnd}
+                            onTouchMove={handleTouchMove}
                           >
-                            {/* Reaction Icon - Appears on hover */}
+                            {/* Reaction Icon - Appears on hover (desktop) or when long pressed (mobile) */}
                             {!String(message.content).startsWith('created_offer::') &&
                              !String(message.content).startsWith('created_listing::') &&
                              !String(message.content).startsWith('proposal::') &&
@@ -1650,7 +1695,11 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                                 }}
                                 className={`absolute ${
                                   isFromMe ? '-left-8' : '-right-8'
-                                } top-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 hover:bg-gray-700 rounded-full p-1.5 shadow-lg`}
+                                } top-0 transition-opacity bg-gray-800 hover:bg-gray-700 rounded-full p-1.5 shadow-lg ${
+                                  showEmojiPicker === message.id || isLongPressing 
+                                    ? 'opacity-100' 
+                                    : 'opacity-0 group-hover:opacity-100 md:opacity-0'
+                                }`}
                                 title="React to message"
                               >
                                 <Smile className="w-4 h-4 text-gray-300" />
@@ -1660,7 +1709,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                             {/* Emoji Picker Popup */}
                             {showEmojiPicker === message.id && (
                               <div className={`absolute ${isFromMe ? 'right-0' : 'left-0'} -top-14 bg-gray-800 border border-gray-600 rounded-2xl p-2 flex items-center space-x-1 shadow-xl z-50`}>
-                                {['👍', '❤️', '😂', '🎉', '😮', '😢', '🔥', '✨'].map((emoji) => (
+                                {['👍', '❤️', '😂', '🎉', '🔥'].map((emoji) => (
                                   <button
                                     key={emoji}
                                     onClick={async (e) => {
@@ -2047,8 +2096,17 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                                     : 'bg-gray-700 text-gray-100'
                                 }`
                           }`}
+                          onTouchStart={() => {
+                            if (!String(message.content).startsWith('created_offer::') &&
+                                !String(message.content).startsWith('created_listing::') &&
+                                !String(message.content).startsWith('proposal::')) {
+                              handleTouchStart(message.id)
+                            }
+                          }}
+                          onTouchEnd={handleTouchEnd}
+                          onTouchMove={handleTouchMove}
                         >
-                          {/* Reaction Icon - Appears on hover (WhatsApp style) */}
+                          {/* Reaction Icon - Appears on hover (desktop) or when long pressed (mobile) */}
                           {!String(message.content).startsWith('created_offer::') &&
                            !String(message.content).startsWith('created_listing::') &&
                            !String(message.content).startsWith('proposal::') &&
@@ -2062,7 +2120,11 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                               }}
                               className={`absolute ${
                                 isFromMe ? '-left-8' : '-right-8'
-                              } top-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 hover:bg-gray-700 rounded-full p-1.5 shadow-lg`}
+                              } top-0 transition-opacity bg-gray-800 hover:bg-gray-700 rounded-full p-1.5 shadow-lg ${
+                                showEmojiPicker === message.id || isLongPressing 
+                                  ? 'opacity-100' 
+                                  : 'opacity-0 group-hover:opacity-100 md:opacity-0'
+                              }`}
                               title="React to message"
                             >
                               <Smile className="w-4 h-4 text-gray-300" />
@@ -2072,7 +2134,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                         {/* Emoji Picker Popup (WhatsApp style) */}
                         {showEmojiPicker === message.id && (
                           <div className={`absolute ${isFromMe ? 'right-0' : 'left-0'} -top-14 bg-gray-800 border border-gray-600 rounded-2xl p-2 flex items-center space-x-1 shadow-xl z-50`}>
-                            {['👍', '❤️', '😂', '🎉', '😮', '😢', '🔥', '✨'].map((emoji) => (
+                            {['👍', '❤️', '😂', '🎉', '🔥'].map((emoji) => (
                               <button
                                 key={emoji}
                                 onClick={async (e) => {

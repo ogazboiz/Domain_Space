@@ -88,24 +88,6 @@ const DomainCard = ({
     }
   }, [domain, onWatch]);
 
-  const handleShareClick = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const shareData = {
-      title: `Check out ${domain.name} on Domain Space`,
-      text: `Discover ${domain.name} - ${isListed ? `Available for ${formatPrice(listing.price, listing.currency.decimals)} ${listing.currency.symbol}` : 'Available for offers'}`,
-      url: window.location.href
-    };
-
-    if (navigator.share) {
-      navigator.share(shareData);
-    } else {
-      // Fallback: copy to clipboard
-      navigator.clipboard.writeText(`${shareData.title}\n${shareData.text}\n${shareData.url}`);
-      // You could add a toast notification here
-    }
-  }, [domain, isListed, listing, formatPrice]);
 
   // Calculate USD value (using a rough ETH price estimate)
   const getUSDValue = useCallback((ethPrice: string, decimals: number) => {
@@ -128,13 +110,6 @@ const DomainCard = ({
     >
       {/* Action Buttons - Top Right */}
       <div className="absolute top-3 right-3 z-10 flex gap-2">
-        <button
-          onClick={handleShareClick}
-          className="transition-all duration-200 hover:scale-110 opacity-40 group-hover:opacity-70"
-          title="Share domain"
-        >
-          <span className="text-xl">📤</span>
-        </button>
         <button
           onClick={handleWatchClick}
           className="transition-all duration-200 hover:scale-110"

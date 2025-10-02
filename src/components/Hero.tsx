@@ -37,7 +37,7 @@ export default function Hero() {
   });
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="min-h-screen h-screen md:min-h-screen md:h-auto relative overflow-hidden">
       {/* Background gradient */}
       <div className="absolute bg-[#000000] inset-0"></div>
 
@@ -52,15 +52,13 @@ export default function Hero() {
         }}
       />
 
-     
-
       {/* Main Content */}
-      <main className="relative flex items-center min-h-[calc(100vh-80px)] px-4 sm:px-6 lg:px-12">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-12 items-center w-full max-w-7xl mx-auto">
+      <main className="relative flex items-center justify-center md:justify-start min-h-[calc(100vh-80px)] h-screen md:h-auto px-4 md:px-6 lg:px-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 lg:gap-12 items-center w-full max-w-7xl mx-auto">
           {/* Left Content */}
-          <div className="space-y-6 lg:space-y-8">
+          <div className="space-y-6 lg:space-y-8 text-center md:text-left">
             {/* Purple glow behind headline */}
-            <div className="absolute -top-10 sm:-top-20 -left-10 sm:-left-20 w-40 h-40 bg-purple-500/30 rounded-full blur-3xl animate-pulse-glow"></div>
+            <div className="absolute -top-10 md:-top-20 -left-10 md:-left-20 w-40 h-40 bg-purple-500/30 rounded-full blur-3xl animate-pulse-glow"></div>
             
             <div className="space-y-4 lg:space-y-6">
               <h1 
@@ -80,7 +78,7 @@ export default function Hero() {
               </h1>
               
               <p 
-                className="text-white text-sm sm:text-base md:text-lg lg:text-xl"
+                className="text-white text-sm md:text-base lg:text-lg xl:text-xl"
                 style={{
                   fontFamily: 'var(--font-space-mono), monospace',
                   fontWeight: 400,
@@ -91,46 +89,48 @@ export default function Hero() {
                 Discover, trade, and manage premium domains with integrated XMTP messaging, orderbook functionality, and seamless blockchain transactions.
               </p>
               
-              <button
-                onClick={() => {
-                  const marketplace = document.getElementById('marketplace-section');
-                  if (marketplace) marketplace.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="relative bg-white z-40 cursor-pointer hover:bg-gray-100 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
-                style={{
-                  width: '215px',
-                  height: '66px',
-                  borderRadius: '40px',
-                  opacity: 1,
-                  paddingTop: '24px',
-                  paddingRight: '40px',
-                  paddingBottom: '24px',
-                  paddingLeft: '40px',
-                  gap: '10px',
-                  backgroundColor: 'white',
-                  zIndex: 50,
-                  position: 'relative'
-                }}
-              >
-                <span
+              <div className="flex justify-center md:justify-start">
+                <button
+                  onClick={() => {
+                    const marketplace = document.getElementById('marketplace-section');
+                    if (marketplace) marketplace.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="relative bg-white z-40 cursor-pointer hover:bg-gray-100 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
                   style={{
-                    fontFamily: 'var(--font-space-mono), monospace',
-                    fontWeight: 400,
-                    fontSize: '20px',
-                    lineHeight: '18px',
-                    letterSpacing: '0%',
-                    color: '#000000'
+                    width: '215px',
+                    height: '66px',
+                    borderRadius: '40px',
+                    opacity: 1,
+                    paddingTop: '24px',
+                    paddingRight: '40px',
+                    paddingBottom: '24px',
+                    paddingLeft: '40px',
+                    gap: '10px',
+                    backgroundColor: 'white',
+                    zIndex: 50,
+                    position: 'relative'
                   }}
                 >
-                  Get started
-                </span>
-              </button>
+                  <span
+                    style={{
+                      fontFamily: 'var(--font-space-mono), monospace',
+                      fontWeight: 400,
+                      fontSize: '20px',
+                      lineHeight: '18px',
+                      letterSpacing: '0%',
+                      color: '#000000'
+                    }}
+                  >
+                    Get started
+                  </span>
+                </button>
+              </div>
 
             </div>
             
             {/* Decorative elements */}
-            <div className="absolute bottom-20 left-0 w-3 h-3 sm:w-4 sm:h-4 bg-blue-400 rounded-full animate-float"></div>
-            <div className="absolute top-20 sm:top-40 -left-4 sm:-left-8 w-2 h-2 sm:w-3 sm:h-3 bg-pink-400 rounded-full animate-float" style={{animationDelay: '1s'}}></div>
+            <div className="absolute bottom-20 left-0 w-3 h-3 md:w-4 md:h-4 bg-blue-400 rounded-full animate-float"></div>
+            <div className="absolute top-20 md:top-40 -left-4 md:-left-8 w-2 h-2 md:w-3 md:h-3 bg-pink-400 rounded-full animate-float" style={{animationDelay: '1s'}}></div>
           </div>
 
           {/* Right Visual Area */}

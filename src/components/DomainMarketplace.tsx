@@ -7,6 +7,7 @@ import { useNames, useOwnedNames, useSelectedNames, useName, useNameStats, useOf
 // import { formatUnits } from "viem";
 import { Name } from "@/types/doma";
 import { useAccount, useAccountEffect } from "wagmi";
+import { usePrivy } from "@privy-io/react-auth";
 // import { useHelper } from "@/hooks/use-helper";
 import { useUsername } from "@/contexts/UsernameContext";
 import { useXMTPContext } from "@/contexts/XMTPContext";
@@ -543,6 +544,7 @@ export default function DomainMarketplace() {
   const chatSearchRef = useRef<HTMLDivElement>(null);
 
   const { address } = useAccount();
+  const { login } = usePrivy();
   // Portfolio value formatting handled inline
   const { profile, watchedDomains, watchDomain, unwatchDomain, isWatching } = useUsername();
   const { client, setClient, connectXmtp, resetXmtp } = useXMTPContext();
@@ -1246,7 +1248,7 @@ export default function DomainMarketplace() {
                       ) : (
                         // Actions for non-owned listed domains
                         <div className="space-y-3">
-                          {isOwned && (
+                          {/* {isOwned && (
                             <button
                               onClick={() => handleMessage(domainToShow)}
                               className="w-full flex items-center justify-center space-x-2 bg-green-600 text-white py-3 px-4 sm:px-6 rounded-xl hover:bg-green-700 transition-all transform hover:scale-105 text-sm sm:text-base"
@@ -1257,7 +1259,7 @@ export default function DomainMarketplace() {
                               </svg>
                               <span>Message Owner</span>
                             </button>
-                          )}
+                          )} */}
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <button
@@ -1913,7 +1915,16 @@ export default function DomainMarketplace() {
                 <div className="text-6xl mb-6">🚀</div>
                 <h3 className="text-white text-3xl font-bold mb-4">Welcome to Your Space</h3>
                 <p className="text-gray-400 mb-8 text-lg max-w-md mx-auto">Connect your wallet to access your domain portfolio, track performance, and manage your digital assets.</p>
-                <button className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-4 rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all duration-300 font-medium text-lg shadow-lg hover:shadow-purple-500/25">
+                <button 
+                  onClick={async () => {
+                    try {
+                      await login();
+                    } catch (error: unknown) {
+                      console.error("Connection error:", error instanceof Error ? error.message : String(error));
+                    }
+                  }}
+                  className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-4 rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all duration-300 font-medium text-lg shadow-lg hover:shadow-purple-500/25"
+                >
                   Connect Wallet
                 </button>
               </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useAccount } from "wagmi";
+import { usePrivy } from "@privy-io/react-auth";
 import { useHelper } from "@/hooks/use-helper";
 
 interface ConnectWalletProps {
@@ -13,11 +14,15 @@ export function ConnectWallet({
   description,
 }: ConnectWalletProps) {
   const { address, isConnecting, isReconnecting } = useAccount();
+  const { login } = usePrivy();
   const { trimAddress } = useHelper();
 
-  const handleConnect = () => {
-    // For now, just log - you can implement actual wallet connection later
-    console.log("Connect wallet clicked");
+  const handleConnect = async () => {
+    try {
+      await login();
+    } catch (error: unknown) {
+      console.error("Connection error:", error instanceof Error ? error.message : String(error));
+    }
   };
 
   return (

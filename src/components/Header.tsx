@@ -62,9 +62,11 @@ export default function Header() {
     setIsMobileMenuOpen(false); // Close mobile menu after navigation
   };
 
-  const handleDisconnect = async (event: React.MouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
+  const handleDisconnect = async (event?: React.MouseEvent) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
 
     if (isDisconnecting) return; // Prevent multiple disconnect attempts
 
@@ -286,7 +288,7 @@ export default function Header() {
                     Connected: {truncateAddress(address)}
                   </div>
                   <button
-                    onClick={() => handleNavigationClick(() => handleDisconnect({} as React.MouseEvent))}
+                    onClick={() => handleNavigationClick(() => handleDisconnect())}
                     className="w-full flex items-center space-x-3 text-red-400 hover:text-red-300 hover:bg-red-400/10 px-4 py-3 rounded-lg transition-all duration-200"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
