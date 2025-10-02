@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     url: 'https://domain-space.vercel.app',
     images: [
       {
-        url: 'https://domain-space.vercel.app/logo_white.png',
+        url: 'https://domain-space.vercel.app/logo_dark.png',
         width: 1200,
         height: 630,
         alt: 'Doma Space - Domain Marketplace',
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Doma Space - Premium Domain Marketplace',
     description: 'Discover, trade, and manage premium domains with advanced marketplace features.',
-    images: ['https://domain-space.vercel.app/logo_white.png'],
+    images: ['https://domain-space.vercel.app/logo_dark.png'],
   },
   robots: {
     index: true,
