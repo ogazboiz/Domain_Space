@@ -13,10 +13,10 @@ export const metadata: Metadata = {
     title: 'Doma Space - Premium Domain Marketplace',
     description: 'The ultimate platform for domain discovery, trading, and management with integrated messaging and orderbook functionality.',
     type: 'website',
-    url: 'https://doma.space',
+    url: 'https://domain-space.vercel.app',
     images: [
       {
-        url: '/og-image.png',
+        url: 'https://domain-space.vercel.app/logo_white.png',
         width: 1200,
         height: 630,
         alt: 'Doma Space - Domain Marketplace',
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Doma Space - Premium Domain Marketplace',
     description: 'Discover, trade, and manage premium domains with advanced marketplace features.',
-    images: ['/og-image.png'],
+    images: ['https://domain-space.vercel.app/logo_white.png'],
   },
   robots: {
     index: true,
