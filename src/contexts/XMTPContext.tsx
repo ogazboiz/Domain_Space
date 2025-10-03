@@ -3,6 +3,8 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from "react";
 import { Client, type Signer } from "@xmtp/browser-sdk";
 import { ReactionCodec } from "@xmtp/content-type-reaction";
+import { ReplyCodec } from "@xmtp/content-type-reply";
+import { AttachmentCodec, RemoteAttachmentCodec } from "@xmtp/content-type-remote-attachment";
 import { toBytes } from "viem";
 import { useAccount, useSignMessage } from "wagmi";
 
@@ -63,17 +65,17 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
       // User is already registered - build existing client (reuses existing inbox)
       const existingClient = await Client.build(
         { identifier: address as string, identifierKind: "Ethereum" },
-        { 
+        {
           env: "dev",
-          codecs: [new ReactionCodec()]
+          codecs: [new ReactionCodec(), new ReplyCodec(), new AttachmentCodec(), new RemoteAttachmentCodec()]
         }
       );
       setClient(existingClient);
     } else {
       // User not registered - create new client
-      const newClient = await Client.create(signer, { 
+      const newClient = await Client.create(signer, {
         env: "dev",
-        codecs: [new ReactionCodec()]
+        codecs: [new ReactionCodec(), new ReplyCodec(), new AttachmentCodec(), new RemoteAttachmentCodec()]
       });
       setClient(newClient);
     }
@@ -397,5 +399,8 @@ export const useXMTPContext = () => {
   }
   return context;
 };
+
+// Export alias for compatibility
+export const useXMTP = useXMTPContext;
 
 export default XMTPProvider;

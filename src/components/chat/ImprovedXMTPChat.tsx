@@ -11,7 +11,11 @@ import TradeOptionsModal from '../TradeOptionsModal'
 import TradeMessageRenderer from '../TradeMessageRenderer'
 import { ContentTypeReaction, Reaction } from '@xmtp/content-type-reaction'
 import { useReactions } from '@/hooks/useReactions'
-import { Smile } from 'lucide-react'
+import { Smile, X } from 'lucide-react'
+import { FileUploadButton } from './FileUploadButton'
+import { AttachmentDisplay } from './AttachmentDisplay'
+import { ContentTypeRemoteAttachment } from '@xmtp/content-type-remote-attachment'
+import type { RemoteAttachmentData } from '@/services/xmtp-attachment'
 
 interface ImprovedXMTPChatProps {
   defaultPeerAddress?: string;
@@ -49,7 +53,8 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
   const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null) // messageId for which picker is shown
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null)
   const [isLongPressing, setIsLongPressing] = useState(false)
-  
+  const [pendingAttachment, setPendingAttachment] = useState<RemoteAttachmentData | null>(null)
+
   // Reactions hook
   const { reactions, addReaction, removeReaction, loadReactions } = useReactions(
     client,
@@ -501,13 +506,41 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
 
   // Send message
   const handleSendMessage = async () => {
-    if (!activeConversation || !newMessage.trim()) return
-
+    if (!activeConversation || (!newMessage.trim() && !pendingAttachment)) return
 
     setIsSendingMessage(true)
     try {
-      await activeConversation.send(newMessage.trim())
-      setNewMessage('')
+      if (pendingAttachment) {
+        // Send attachment - create proper RemoteAttachment object
+        const remoteAttachment = {
+          url: pendingAttachment.url,
+          contentDigest: pendingAttachment.contentDigest,
+          salt: pendingAttachment.salt,
+          nonce: pendingAttachment.nonce,
+          secret: pendingAttachment.secret,
+          scheme: pendingAttachment.scheme || 'https://',
+          filename: pendingAttachment.filename,
+          contentLength: pendingAttachment.contentLength,
+        };
+
+        await activeConversation.send(remoteAttachment, ContentTypeRemoteAttachment)
+        setPendingAttachment(null)
+      } else {
+        // Send text message
+        await activeConversation.send(newMessage.trim())
+        setNewMessage('')
+      }
+
+      // Sync to see the sent message immediately
+      await activeConversation.sync()
+      const msgs = await activeConversation.messages()
+      const validMessages = msgs.filter((msg: DecodedMessage) => {
+        const isText = typeof msg.content === "string" && msg.content !== "" && !msg.content.startsWith("{");
+        const isAttachment = msg.contentType?.sameAs(ContentTypeRemoteAttachment);
+        return isText || isAttachment;
+      });
+      setMessages(validMessages)
+
       // Scroll to bottom after sending message
       scrollToBottom()
     } catch (err) {
@@ -516,6 +549,17 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     } finally {
       setIsSendingMessage(false)
     }
+  }
+
+  // Handle file selection
+  const handleFileSelect = (remoteAttachment: RemoteAttachmentData) => {
+    setPendingAttachment(remoteAttachment)
+  }
+
+  // Check if message is a remote attachment
+  const isRemoteAttachment = (message: DecodedMessage) => {
+    return message.contentType?.sameAs(ContentTypeRemoteAttachment) ||
+           (typeof message.content === 'object' && message.content && 'url' in message.content)
   }
 
   // Handle new conversation creation
@@ -563,12 +607,12 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
       // If there's an active conversation, refresh its messages
       if (activeConversation) {
         const msgs = await activeConversation.messages();
-        const textMessages = msgs.filter((msg: DecodedMessage) => {
-          return typeof msg.content === "string" &&
-                 msg.content !== "" &&
-                 !msg.content.startsWith("{");
+        const validMessages = msgs.filter((msg: DecodedMessage) => {
+          const isText = typeof msg.content === "string" && msg.content !== "" && !msg.content.startsWith("{");
+          const isAttachment = msg.contentType?.sameAs(ContentTypeRemoteAttachment);
+          return isText || isAttachment;
         });
-        setMessages(textMessages);
+        setMessages(validMessages);
       }
 
       toast.success('All conversations synced successfully', { id: 'global-sync' });
@@ -594,12 +638,12 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
 
       // Refresh messages for this conversation
       const msgs = await activeConversation.messages();
-      const textMessages = msgs.filter((msg: DecodedMessage) => {
-        return typeof msg.content === "string" &&
-               msg.content !== "" &&
-               !msg.content.startsWith("{");
+      const validMessages = msgs.filter((msg: DecodedMessage) => {
+        const isText = typeof msg.content === "string" && msg.content !== "" && !msg.content.startsWith("{");
+        const isAttachment = msg.contentType?.sameAs(ContentTypeRemoteAttachment);
+        return isText || isAttachment;
       });
-      setMessages(textMessages);
+      setMessages(validMessages);
 
       toast.success('Conversation synced successfully', { id: 'conversation-sync' });
     } catch (error) {
@@ -655,14 +699,17 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
 
       // Load ALL messages (including reactions)
       const allMsgs = await conversation.xmtpObject.messages();
-      
-      // Filter text messages (exclude reactions, receipts, etc)
-      const textMessages = allMsgs.filter((msg: DecodedMessage) => {
+
+      // Filter messages to include text and attachments (exclude reactions, receipts, etc)
+      const validMessages = allMsgs.filter((msg: DecodedMessage) => {
+        // Include text messages
         const isText = typeof msg.content === "string" && msg.content !== "";
-        return isText;
+        // Include remote attachments
+        const isAttachment = msg.contentType?.sameAs(ContentTypeRemoteAttachment);
+        return isText || isAttachment;
       });
 
-      setMessages(textMessages);
+      setMessages(validMessages);
       
       // Load reactions separately and pass them to the reactions hook
       loadReactions(allMsgs);
@@ -697,14 +744,15 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
             await existingConversation.xmtpObject.sync();
             await new Promise(resolve => setTimeout(resolve, 100));
             const msgs = await existingConversation.xmtpObject.messages();
-            
-            // Filter text messages
-            const textMessages = msgs.filter((msg: DecodedMessage) => {
+
+            // Filter messages to include text and attachments
+            const validMessages = msgs.filter((msg: DecodedMessage) => {
               const isText = typeof msg.content === "string" && msg.content !== "";
-              return isText;
+              const isAttachment = msg.contentType?.sameAs(ContentTypeRemoteAttachment);
+              return isText || isAttachment;
             });
-            
-            setMessages(textMessages);
+
+            setMessages(validMessages);
             loadReactions(msgs);
           } catch (error) {
             console.error("Failed to load messages:", error);
@@ -749,14 +797,15 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
             await conversation.sync();
             await new Promise(resolve => setTimeout(resolve, 100));
             const msgs = await conversation.messages();
-            
-            // Filter text messages
-            const textMessages = msgs.filter((msg: DecodedMessage) => {
+
+            // Filter messages to include text and attachments
+            const validMessages = msgs.filter((msg: DecodedMessage) => {
               const isText = typeof msg.content === "string" && msg.content !== "";
-              return isText;
+              const isAttachment = msg.contentType?.sameAs(ContentTypeRemoteAttachment);
+              return isText || isAttachment;
             });
-            
-            setMessages(textMessages);
+
+            setMessages(validMessages);
             loadReactions(msgs);
           } catch (error) {
             console.error("Failed to load messages:", error);
@@ -803,14 +852,15 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
               await (conversation as Dm).sync();
               await new Promise(resolve => setTimeout(resolve, 100));
               const msgs = await (conversation as Dm).messages();
-              
-              // Filter text messages
-              const textMessages = msgs.filter((msg: DecodedMessage) => {
+
+              // Filter messages to include text and attachments
+              const validMessages = msgs.filter((msg: DecodedMessage) => {
                 const isText = typeof msg.content === "string" && msg.content !== "";
-                return isText;
+                const isAttachment = msg.contentType?.sameAs(ContentTypeRemoteAttachment);
+                return isText || isAttachment;
               });
-              
-              setMessages(textMessages);
+
+              setMessages(validMessages);
               loadReactions(msgs);
             } catch (error) {
               console.error("Failed to load messages:", error);
@@ -912,11 +962,14 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
       try {
         streamController = await activeConversation.stream({
           onValue: (message: DecodedMessage) => {
-            // Filter out system messages in streaming too
-            if (message &&
+            // Filter to include text messages and attachments in streaming
+            const isText = message &&
                 typeof message.content === "string" &&
                 message.content !== "" &&
-                !message.content.startsWith("{")) {
+                !message.content.startsWith("{");
+            const isAttachment = message?.contentType?.sameAs(ContentTypeRemoteAttachment);
+
+            if (isText || isAttachment) {
               setMessages(prev => {
                 const exists = prev.find(m => m.id === message.id);
                 if (exists) return prev;
@@ -1642,6 +1695,20 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
               {/* Chat Header */}
               <div className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center space-x-3">
+                  {/* Back to Tabs Button - Mobile fullscreen mode */}
+                  {isFullscreen && onBackToMarketplace && (
+                    <button
+                      onClick={onBackToMarketplace}
+                      className="flex items-center gap-1 px-2 py-1.5 bg-gray-700/50 hover:bg-gray-600/50 text-gray-300 hover:text-white rounded-md transition-all duration-200 text-xs font-medium border border-gray-600/30"
+                      title="Back to Tabs"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                      </svg>
+                      <span>Tabs</span>
+                    </button>
+                  )}
+                  
                   <ChatAvatar
                     address={activePeerAddress || 'unknown'}
                     className="w-8 h-8"
@@ -1743,34 +1810,38 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                             onTouchEnd={handleTouchEnd}
                             onTouchMove={handleTouchMove}
                           >
-                            {/* Reaction Icon - Appears on hover (desktop) or when long pressed (mobile) */}
+                            {/* Action Icons - Appears on hover (desktop) or when long pressed (mobile) */}
                             {!String(message.content).startsWith('created_offer::') &&
                              !String(message.content).startsWith('created_listing::') &&
                              !String(message.content).startsWith('proposal::') &&
                              !String(message.content).startsWith('accepted_offer::') &&
                              !String(message.content).startsWith('declined_offer::') &&
                              !String(message.content).startsWith('purchased_listing::') && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setShowEmojiPicker(showEmojiPicker === message.id ? null : message.id);
-                                }}
-                                className={`absolute ${
-                                  isFromMe ? '-left-8' : '-right-8'
-                                } top-0 transition-opacity bg-gray-800 hover:bg-gray-700 rounded-full p-1.5 shadow-lg ${
-                                  showEmojiPicker === message.id || isLongPressing 
-                                    ? 'opacity-100' 
-                                    : 'opacity-0 group-hover:opacity-100 md:opacity-0'
-                                }`}
-                                title="React to message"
-                              >
-                                <Smile className="w-4 h-4 text-gray-300" />
-                              </button>
+                              <div className={`absolute ${
+                                isFromMe ? '-left-20' : '-right-20'
+                              } top-0 flex items-center gap-1 transition-opacity ${
+                                showEmojiPicker === message.id || isLongPressing
+                                  ? 'opacity-100'
+                                  : 'opacity-0 group-hover:opacity-100'
+                              }`}>
+                                {/* React Button */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowEmojiPicker(showEmojiPicker === message.id ? null : message.id);
+                                  }}
+                                  className="bg-gray-800 hover:bg-gray-700 rounded-full p-1.5 shadow-lg"
+                                  title="React to message"
+                                >
+                                  <Smile className="w-4 h-4 text-gray-300" />
+                                </button>
+                              </div>
                             )}
 
                             {/* Emoji Picker Popup */}
                             {showEmojiPicker === message.id && (
                               <div className={`absolute ${isFromMe ? 'right-0' : 'left-0'} -top-14 bg-gray-800 border border-gray-600 rounded-2xl p-2 flex items-center space-x-1 shadow-xl z-50`}>
+                                {/* Emoji Reactions */}
                                 {['👍', '❤️', '😂', '🎉', '🔥'].map((emoji) => (
                                   <button
                                     key={emoji}
@@ -1801,21 +1872,29 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                               </div>
                             )}
                             
-                            <TradeMessageRenderer
-                              content={String(message.content)}
-                              isFromMe={isFromMe}
-                              timestamp={new Date(Number(message.sentAtNs) / 1_000_000)}
-                              onReply={() => setShowTradeModal(true)}
-                              onSendMessage={async (message: string) => {
-                                if (activeConversation) {
-                                  try {
-                                    await activeConversation.send(message);
-                                  } catch (error) {
-                                    toast.error('Failed to send response message');
+                            {/* Remote Attachment Display */}
+                            {isRemoteAttachment(message) ? (
+                              <AttachmentDisplay
+                                remoteAttachment={message.content as RemoteAttachmentData}
+                                className="max-w-xs"
+                              />
+                            ) : (
+                              <TradeMessageRenderer
+                                content={String(message.content)}
+                                isFromMe={isFromMe}
+                                timestamp={new Date(Number(message.sentAtNs) / 1_000_000)}
+                                onReply={() => setShowTradeModal(true)}
+                                onSendMessage={async (msg: string) => {
+                                  if (activeConversation) {
+                                    try {
+                                      await activeConversation.send(msg);
+                                    } catch (error) {
+                                      toast.error('Failed to send response message');
+                                    }
                                   }
-                                }
-                              }}
-                            />
+                                }}
+                              />
+                            )}
                             
                             {/* Timestamp */}
                             {!String(message.content).startsWith('created_offer::') &&
@@ -1882,7 +1961,22 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
 
               {/* Message Input - WhatsApp Style */}
               <div className="bg-gray-800 border-t border-gray-700 p-4 pb-safe flex-shrink-0">
+                {/* Pending Attachment Display */}
+                {pendingAttachment && (
+                  <div className="mb-3">
+                    <AttachmentDisplay
+                      remoteAttachment={pendingAttachment}
+                      className="max-w-sm"
+                    />
+                  </div>
+                )}
+
                 <div className="flex items-end space-x-3">
+                  <FileUploadButton
+                    onFileSelect={handleFileSelect}
+                    disabled={isSendingMessage}
+                    className="flex-shrink-0"
+                  />
                   <div className="flex-1 bg-gray-700 rounded-full px-4 py-2 flex items-center min-h-[44px]">
                     <input
                       type="text"
@@ -1897,7 +1991,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                   </div>
                   <button
                     onClick={handleSendMessage}
-                    disabled={!newMessage.trim() || isSendingMessage}
+                    disabled={(!newMessage.trim() && !pendingAttachment) || isSendingMessage}
                     className="bg-purple-600 hover:bg-purple-700 active:bg-purple-800 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-full p-3 transition-colors touch-manipulation"
                   >
                     {isSendingMessage ? (
@@ -2263,22 +2357,30 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                             </button>
                           </div>
                         )}
-                        <TradeMessageRenderer
-                          content={String(message.content)}
-                          isFromMe={isFromMe}
-                          timestamp={new Date(Number(message.sentAtNs) / 1_000_000)}
-                          onReply={() => setShowTradeModal(true)}
-                          onSendMessage={async (message: string) => {
-                            if (activeConversation) {
-                              try {
-                                await activeConversation.send(message);
-                              } catch (error) {
-                                console.error('Failed to send response message:', error);
-                                toast.error('Failed to send response message');
+                        {/* Remote Attachment Display */}
+                        {isRemoteAttachment(message) ? (
+                          <AttachmentDisplay
+                            remoteAttachment={message.content as RemoteAttachmentData}
+                            className="max-w-xs"
+                          />
+                        ) : (
+                          <TradeMessageRenderer
+                            content={String(message.content)}
+                            isFromMe={isFromMe}
+                            timestamp={new Date(Number(message.sentAtNs) / 1_000_000)}
+                            onReply={() => setShowTradeModal(true)}
+                            onSendMessage={async (message: string) => {
+                              if (activeConversation) {
+                                try {
+                                  await activeConversation.send(message);
+                                } catch (error) {
+                                  console.error('Failed to send response message:', error);
+                                  toast.error('Failed to send response message');
+                                }
                               }
-                            }
-                          }}
-                        />
+                            }}
+                          />
+                        )}
                           {/* Timestamp */}
                           {!String(message.content).startsWith('created_offer::') &&
                            !String(message.content).startsWith('created_listing::') &&
@@ -2338,7 +2440,22 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
 
             {/* Message Input */}
             <div className="p-4 border-t border-gray-700 flex-shrink-0">
+              {/* Pending Attachment Display */}
+              {pendingAttachment && (
+                <div className="mb-3">
+                  <AttachmentDisplay
+                    remoteAttachment={pendingAttachment}
+                    className="max-w-xs"
+                  />
+                </div>
+              )}
+              
               <div className="flex space-x-3">
+                <FileUploadButton
+                  onFileSelect={handleFileSelect}
+                  disabled={isSendingMessage}
+                  className="flex-shrink-0"
+                />
                 <input
                   type="text"
                   value={newMessage}
@@ -2350,7 +2467,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                 />
                 <button
                   onClick={handleSendMessage}
-                  disabled={!newMessage.trim() || isSendingMessage}
+                  disabled={(!newMessage.trim() && !pendingAttachment) || isSendingMessage}
                   className="px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
                 >
                   {isSendingMessage ? 'Sending...' : 'Send'}
