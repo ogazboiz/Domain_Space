@@ -18,6 +18,9 @@ interface ImprovedXMTPChatProps {
   searchQuery?: string;
   setSearchQuery?: (query: string) => void;
   onManualConversationSelect?: () => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
+  onBackToMarketplace?: () => void;
 }
 
 interface EnhancedConversation {
@@ -33,7 +36,7 @@ interface EnhancedConversation {
   xmtpObject: Dm;
 }
 
-export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "", setSearchQuery, onManualConversationSelect }: ImprovedXMTPChatProps) {
+export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "", setSearchQuery, onManualConversationSelect, isFullscreen = false, onToggleFullscreen, onBackToMarketplace }: ImprovedXMTPChatProps) {
   const { client, isLoading, error, isConnected, revokeInstallations, clearLocalData } = useXMTPContext()
   const { address } = useAccount()
   
@@ -1088,7 +1091,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
   }
 
   return (
-    <div className="h-full w-full flex bg-gray-900 text-white min-h-0 overflow-hidden">
+    <div className="h-full w-full flex bg-gray-900 text-white min-h-0 overflow-hidden chat-container">
       {/* Desktop Sidebar - Hidden on mobile */}
       <div 
         className="border-r border-gray-700 flex-col relative hidden lg:flex"
@@ -1136,7 +1139,22 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
         {/* Header */}
         <div className="p-4 border-b border-gray-700">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold">Messages</h2>
+            <div className="flex items-center space-x-3">
+              <h2 className="text-xl font-bold">Messages</h2>
+              {/* Back to Tabs Button - Only in fullscreen mode */}
+              {isFullscreen && onBackToMarketplace && (
+                <button
+                  onClick={onBackToMarketplace}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-700/50 hover:bg-gray-600/50 text-gray-300 hover:text-white rounded-md transition-all duration-200 text-xs font-medium border border-gray-600/30"
+                  title="Back to Tabs"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                  <span>Tabs</span>
+                </button>
+              )}
+            </div>
             <div className="flex items-center space-x-2">
               {/* Global Sync Button - Syncs all conversations */}
               <button
@@ -1430,11 +1448,16 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
         {/* Mobile Header - Always visible */}
         <div className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-3">
+            
             {/* Back button */}
             {activeConversation ? (
               <button
-                onClick={() => setActiveConversation(null)}
+                onClick={() => {
+                  // Always go back to conversation list, regardless of fullscreen mode
+                  setActiveConversation(null);
+                }}
                 className="p-2 hover:bg-gray-700 rounded-full transition-colors"
+                title="Back to conversations"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -1450,6 +1473,24 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
 
           {/* Action buttons */}
           <div className="flex items-center space-x-2">
+            
+            {/* Fullscreen Toggle Button */}
+            <button
+              onClick={onToggleFullscreen}
+              className="p-2 hover:bg-gray-700 rounded-full transition-colors"
+              title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+            >
+              {isFullscreen ? (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                </svg>
+              )}
+            </button>
+            
             {activeConversation && (
               <button
                 onClick={() => setShowTradeModal(true)}
@@ -1618,6 +1659,27 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                 </div>
                 
                 <div className="flex items-center space-x-2">
+                  {/* Copy Address Button */}
+                  {activePeerAddress && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(activePeerAddress);
+                          toast.success("Address copied to clipboard!");
+                        } catch (error) {
+                          console.error("Failed to copy address:", error);
+                          toast.error("Failed to copy address");
+                        }
+                      }}
+                      className="p-2 hover:bg-gray-700 rounded-full transition-colors"
+                      title="Copy peer address"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                  )}
+                  
                   <button
                     onClick={handleConversationSync}
                     disabled={isSyncingConversation}
@@ -1773,14 +1835,28 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                           {/* Display reactions BELOW the message bubble */}
                           {reactions.filter(r => r.messageId === message.id).length > 0 && (
                             <div className={`flex gap-1 mt-1 flex-wrap ${isFromMe ? 'justify-end' : 'justify-start'}`}>
-                              {reactions
-                                .filter(r => r.messageId === message.id)
-                                .map((reaction, index) => {
-                                  const isMyReaction = reaction.from === client?.inboxId;
+                              {(() => {
+                                // Group reactions by emoji and count them
+                                const messageReactions = reactions.filter(r => r.messageId === message.id);
+                                const groupedReactions = messageReactions.reduce((acc, reaction) => {
+                                  if (!acc[reaction.emoji]) {
+                                    acc[reaction.emoji] = {
+                                      emoji: reaction.emoji,
+                                      count: 0,
+                                      users: new Set()
+                                    };
+                                  }
+                                  acc[reaction.emoji].count++;
+                                  acc[reaction.emoji].users.add(reaction.from);
+                                  return acc;
+                                }, {} as Record<string, { emoji: string; count: number; users: Set<string> }>);
+
+                                return Object.values(groupedReactions).map((group, index) => {
+                                  const isMyReaction = group.users.has(client?.inboxId || '');
                                   return (
                                     <button
-                                      key={`${reaction.from}-${reaction.emoji}-${reaction.timestamp.getTime()}-${index}`}
-                                      onClick={() => isMyReaction && removeReaction(message.id, reaction.emoji)}
+                                      key={`${group.emoji}-${index}`}
+                                      onClick={() => isMyReaction && removeReaction(message.id, group.emoji)}
                                       className={`px-2 py-0.5 rounded-full transition-all flex items-center gap-1 shadow-sm ${
                                         isMyReaction 
                                           ? 'bg-purple-600 border border-purple-500 hover:bg-purple-700 cursor-pointer' 
@@ -1788,10 +1864,12 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                                       }`}
                                       title={isMyReaction ? 'Click to remove your reaction' : 'Other person\'s reaction'}
                                     >
-                                      <span className="text-base">{reaction.emoji}</span>
+                                      <span className="text-base">{group.emoji}</span>
+                                      <span className="text-xs font-medium">{group.count}</span>
                                     </button>
                                   );
-                                })}
+                                });
+                              })()}
                             </div>
                           )}
                         </div>
@@ -2022,6 +2100,28 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                 </div>
 
                 <div className="flex items-center space-x-2">
+                  
+                  {/* Copy Address Button */}
+                  {activePeerAddress && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(activePeerAddress);
+                          toast.success("Address copied to clipboard!");
+                        } catch (error) {
+                          console.error("Failed to copy address:", error);
+                          toast.error("Failed to copy address");
+                        }
+                      }}
+                      className="p-2 hover:bg-gray-700 rounded-full transition-colors"
+                      title="Copy peer address"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                  )}
+                  
                   {/* Trade Button */}
                   {activeConversation && (
                     <button

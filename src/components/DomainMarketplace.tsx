@@ -158,7 +158,9 @@ const ChatDomainSearchBar = ({
   isLoading,
   onFocus,
   searchRef,
-  onDomainClick
+  onDomainClick,
+  isFullscreen,
+  onToggleFullscreen
 }: {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
@@ -169,6 +171,8 @@ const ChatDomainSearchBar = ({
   onFocus: () => void;
   searchRef: React.RefObject<HTMLDivElement | null>;
   onDomainClick: (domain: Name) => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }) => {
   // Get TLD color function
   const getTldColor = (tld: string) => {
@@ -176,21 +180,40 @@ const ChatDomainSearchBar = ({
   };
 
   return (
-  <div ref={searchRef} className="relative w-full lg:w-64">
-    <input
-      type="text"
-      placeholder="Search domains to message..."
-      value={searchQuery}
-      onChange={(e) => setSearchQuery(e.target.value)}
-      onFocus={() => {
-        setShowResults(true);
-        onFocus();
-      }}
-      className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 pr-10 text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 w-full"
-    />
-    <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-      <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"/>
-    </svg>
+  <div className="flex items-center gap-2 w-full lg:w-64">
+    <div ref={searchRef} className="relative flex-1">
+      <input
+        type="text"
+        placeholder="Search domains to message..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        onFocus={() => {
+          setShowResults(true);
+          onFocus();
+        }}
+        className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 pr-10 text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 w-full"
+      />
+      <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"/>
+      </svg>
+    </div>
+    
+    {/* Mobile Fullscreen Toggle Button */}
+    <button
+      onClick={onToggleFullscreen}
+      className="lg:hidden flex items-center justify-center w-10 h-10 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg transition-colors duration-200"
+      title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+    >
+      {isFullscreen ? (
+        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      ) : (
+        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+        </svg>
+      )}
+    </button>
     
     {/* Domain Search Results Dropdown */}
     {showResults && (searchQuery || domains.length > 0) && (
@@ -1066,14 +1089,19 @@ export default function DomainMarketplace() {
       document.addEventListener('keydown', handleKeyDown);
       // Prevent body scroll when in fullscreen
       document.body.style.overflow = 'hidden';
+      // Add fullscreen class to body for mobile-specific styling
+      document.body.classList.add('chat-fullscreen');
     } else {
       // Restore body scroll
       document.body.style.overflow = 'unset';
+      // Remove fullscreen class
+      document.body.classList.remove('chat-fullscreen');
     }
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'unset';
+      document.body.classList.remove('chat-fullscreen');
     };
   }, [isFullscreen]);
 
@@ -2141,12 +2169,24 @@ export default function DomainMarketplace() {
         );
       case "chat":
         return (
-          <div className="h-[600px] sm:h-[700px] lg:h-[800px] w-full flex overflow-hidden">
+          <div className={`w-full flex overflow-hidden ${
+            isFullscreen 
+              ? 'h-screen fixed inset-0 z-[9999] bg-black' 
+              : 'h-[600px] sm:h-[700px] lg:h-[800px]'
+          }`}>
             <ImprovedXMTPChat
               defaultPeerAddress={selectedUserAddress}
               searchQuery={chatSearchQuery}
               setSearchQuery={setChatSearchQuery}
               onManualConversationSelect={handleManualConversationSelect}
+              isFullscreen={isFullscreen} // Pass the fullscreen state
+              onToggleFullscreen={toggleFullscreen}
+              onBackToMarketplace={() => {
+                // When in fullscreen chat, switch to browse tab to show tab navigation
+                if (isFullscreen) {
+                  setActiveTab("browse");
+                }
+              }}
             />
           </div>
         );
@@ -2205,6 +2245,8 @@ export default function DomainMarketplace() {
               onFocus={() => setShowChatDomainSearch(true)}
               searchRef={chatSearchRef}
               onDomainClick={handleChatDomainMessage}
+              isFullscreen={isFullscreen}
+              onToggleFullscreen={toggleFullscreen}
             />
           )}
         </div>
@@ -2367,6 +2409,8 @@ export default function DomainMarketplace() {
               onFocus={() => setShowChatDomainSearch(true)}
               searchRef={chatSearchRef}
               onDomainClick={handleChatDomainMessage}
+              isFullscreen={isFullscreen}
+              onToggleFullscreen={toggleFullscreen}
             />
           )}
         </div>

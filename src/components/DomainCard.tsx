@@ -48,6 +48,33 @@ const DomainCard = ({
   const isOwnedByUser = forceOwned || (userAddress && domain.claimedBy &&
     domain.claimedBy.split(':')[2]?.toLowerCase() === userAddress.toLowerCase());
 
+  // Function to get chain name from chain ID or networkId
+  const getChainName = (token: { chain?: { name?: string }; networkId?: string }) => {
+    if (token?.chain?.name) {
+      return token.chain.name;
+    }
+    
+    if (token?.networkId) {
+      const chainId = token.networkId.split(':')[1];
+      const chainIdMap: { [key: string]: string } = {
+        '1': 'Ethereum',
+        '11155111': 'Sepolia',
+        '137': 'Polygon',
+        '80001': 'Mumbai',
+        '56': 'BSC',
+        '97': 'BSC Testnet',
+        '250': 'Fantom',
+        '43114': 'Avalanche',
+        '10': 'Optimism',
+        '42161': 'Arbitrum',
+        '2800': 'Doma'
+      };
+      return chainIdMap[chainId] || `Chain ${chainId}`;
+    }
+    
+    return 'Unknown';
+  };
+
   const handleBuyClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
 
@@ -178,7 +205,7 @@ const DomainCard = ({
       {/* Info Section */}
       <div className="flex-1 flex flex-col justify-between">
         <div className="space-y-2 mb-3">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 flex-wrap">
             <span
               className="text-white text-xs px-2 py-1 rounded"
               style={{ backgroundColor: '#1689DB3B' }}
@@ -187,12 +214,25 @@ const DomainCard = ({
             </span>
             {token && (
               <span
-                className="text-white text-xs px-2 py-1 rounded"
-                style={{ backgroundColor: getTldColor(tld) + '3B' }}
+                className="text-gray-300 text-xs px-2 py-1 rounded font-medium"
+                style={{ 
+                  backgroundColor: '#3741513B',
+                  border: '1px solid rgba(107, 114, 128, 0.3)'
+                }}
               >
-                {token.networkId ? token.networkId.split(':')[1] : 'Chain'}
+                {getChainName(token)}
               </span>
             )}
+            {/* Listing Status Tag */}
+            <span
+              className="text-white text-xs px-2 py-1 rounded font-medium"
+              style={{ 
+                backgroundColor: isListed ? '#10B9813B' : '#6B72803B',
+                color: isListed ? '#10B981' : '#6B7280'
+              }}
+            >
+              {isListed ? 'Listed' : 'Unlisted'}
+            </span>
           </div>
           <p className="text-gray-400 text-xs truncate">
             {isOwned ? `Owner: ${domain.claimedBy?.split(':')[2]?.substring(0, 6)}...` : 'Available'}

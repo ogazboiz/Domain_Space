@@ -4,6 +4,7 @@ import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useAccount, useDisconnect } from "wagmi";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export default function Header() {
   const [mounted, setMounted] = useState(false);
@@ -40,6 +41,18 @@ export default function Header() {
 
   const truncateAddress = (addr: string | undefined) =>
     addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
+
+  const handleCopyAddress = async () => {
+    if (address) {
+      try {
+        await navigator.clipboard.writeText(address);
+        toast.success("Address copied to clipboard!");
+      } catch (error) {
+        console.error("Failed to copy address:", error);
+        toast.error("Failed to copy address");
+      }
+    }
+  };
 
   const handleConnect = async () => {
     try {
@@ -284,8 +297,17 @@ export default function Header() {
                 </div>
               ) : authenticated && address ? (
                 <div className="space-y-2">
-                  <div className="px-4 py-2 text-sm text-gray-400">
-                    Connected: {truncateAddress(address)}
+                  <div className="px-4 py-2 text-sm text-gray-400 flex items-center justify-between">
+                    <span>Connected: {truncateAddress(address)}</span>
+                    <button
+                      onClick={handleCopyAddress}
+                      className="p-1 hover:bg-white/10 rounded transition-colors"
+                      title="Copy full address"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </button>
                   </div>
                   <button
                     onClick={() => handleNavigationClick(() => handleDisconnect())}
