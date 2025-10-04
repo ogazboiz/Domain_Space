@@ -237,6 +237,15 @@ const DomainCard = ({
           <p className="text-gray-400 text-xs truncate">
             {isOwned ? `Owner: ${domain.claimedBy?.split(':')[2]?.substring(0, 6)}...` : 'Available'}
           </p>
+          {/* Price for listed domains */}
+          {isListed && listing && (
+            <p className="text-green-400 text-sm font-semibold">
+              {listing.price && listing.currency ? 
+                `${formatPrice(listing.price, listing.currency.decimals)} ${listing.currency.symbol}` : 
+                'Price N/A'
+              }
+            </p>
+          )}
           {domain.expiresAt && (
             <p className="text-gray-400 text-xs">
               Expires: {formatDistanceToNow(new Date(domain.expiresAt), { addSuffix: true })}

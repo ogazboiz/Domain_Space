@@ -35,8 +35,22 @@ export default function Header() {
         setIsMobileMenuOpen(false);
       }
     };
+    
+    const handleTouchOutside = (event: TouchEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsWalletDropdownOpen(false);
+      }
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+    
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleTouchOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleTouchOutside);
+    };
   }, []);
 
   const truncateAddress = (addr: string | undefined) =>
@@ -66,8 +80,18 @@ export default function Header() {
     setIsWalletDropdownOpen(!isWalletDropdownOpen);
   };
 
-  const handleMobileMenuToggle = () => {
+  const handleMobileMenuToggle = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    console.log('Mobile menu toggle clicked, current state:', isMobileMenuOpen, 'will set to:', !isMobileMenuOpen);
     setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  const handleMobileMenuClose = () => {
+    console.log('Mobile menu close clicked');
+    setIsMobileMenuOpen(false);
   };
 
   const handleNavigationClick = (action: () => void) => {
@@ -108,7 +132,7 @@ export default function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-[999] w-full bg-black/95 backdrop-blur-md border-b border-white/10">
+    <header className="sticky top-0 z-[999] w-full bg-black/95 backdrop-blur-md border-b border-white/10 relative">
       <div className="flex items-center justify-between px-4 py-4 lg:px-8 lg:py-6 max-w-7xl mx-auto h-16 lg:h-20">
 
         {/* Logo Section */}
@@ -243,27 +267,39 @@ export default function Header() {
           )}
           </div>
 
-          {/* Mobile Menu Button */}
-          <button
-            onClick={handleMobileMenuToggle}
-            className="lg:hidden p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200"
-            aria-label="Toggle mobile menu"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              {isMobileMenuOpen ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              ) : (
+          {/* Mobile Menu Button - Hidden when menu is open */}
+          {!isMobileMenuOpen && (
+            <button
+              onClick={(e) => handleMobileMenuToggle(e)}
+              onMouseDown={(e) => e.preventDefault()}
+              className="lg:hidden p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200 relative z-[60]"
+              aria-label="Toggle mobile menu"
+              style={{ touchAction: 'manipulation' }}
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              )}
-            </svg>
-          </button>
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 
       {/* Mobile Navigation Menu */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden border-t border-white/10 bg-black/95 backdrop-blur-md" ref={mobileMenuRef}>
+        <div className="lg:hidden border-t border-white/10 bg-black/95 backdrop-blur-md absolute top-full left-0 right-0 z-40" ref={mobileMenuRef}>
           <div className="px-4 py-4 space-y-2">
+            {/* Close button inside mobile menu */}
+            <div className="flex justify-end mb-2">
+              <button
+                onClick={handleMobileMenuClose}
+                className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200"
+                aria-label="Close mobile menu"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
             <button
               onClick={() => handleNavigationClick(() => router.push('/'))}
               className="w-full flex items-center space-x-3 text-white/80 hover:text-white hover:bg-white/10 px-4 py-3 rounded-lg transition-all duration-200"
