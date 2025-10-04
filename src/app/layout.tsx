@@ -25,6 +25,12 @@ const spaceMono = Space_Mono({
 export const metadata: Metadata = {
   title: "Doma Space - Premium Domain Marketplace & Trading Platform",
   description: "Discover, trade, and manage premium domains with our advanced marketplace. Features XMTP messaging, orderbook integration, and seamless domain transactions.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Domain Space"
+  },
   icons: {
     icon: [
       { url: '/favicon.ico?v=2', sizes: 'any' },
@@ -34,6 +40,14 @@ export const metadata: Metadata = {
     shortcut: '/favicon.ico?v=2',
     apple: '/favicon.ico?v=2',
   },
+};
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: '#8B5CF6',
 };
 
 export default function RootLayout({
@@ -49,6 +63,13 @@ export default function RootLayout({
         <link rel="icon" href="/logo.svg?v=2" type="image/svg+xml" />
         <link rel="shortcut icon" href="/favicon.ico?v=2" />
         <link rel="apple-touch-icon" href="/favicon.ico?v=2" />
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#8B5CF6" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Domain Space" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="application-name" content="Domain Space" />
       </head>
       <body className={`${inter.className} antialiased`}>
         <PrivyProviders>

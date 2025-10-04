@@ -144,13 +144,11 @@ export default function TradeMessageRenderer({ content, isFromMe, timestamp, onR
         signer: viemToEthersSigner(walletClient, chainId as `eip155:${number}`),
         chainId: chainId as `eip155:${number}`,
         onProgress: (progress) => {
-          progress.forEach((step, index) => {
-            console.log(`Step ${index + 1}: ${step.description} - ${step.status}`);
-          });
+          // Progress tracking
         },
       });
 
-      // Send response message like frontend does
+      // Send response message
       if (onSendMessage && result) {
         const responseMessage = `accepted_offer::${JSON.stringify({
           domainName: offerData.domainName,
@@ -242,13 +240,11 @@ export default function TradeMessageRenderer({ content, isFromMe, timestamp, onR
         signer: viemToEthersSigner(walletClient, chainId as `eip155:${number}`),
         chainId: chainId as `eip155:${number}`,
         onProgress: (progress) => {
-          progress.forEach((step, index) => {
-            console.log(`Step ${index + 1}: ${step.description} - ${step.status}`);
-          });
+          // Progress tracking
         },
       });
 
-      // Send response message like frontend does
+      // Send response message
       if (onSendMessage && result) {
         const responseMessage = `purchased_listing::${JSON.stringify({
           domainName: listingData.domainName,
@@ -282,7 +278,6 @@ export default function TradeMessageRenderer({ content, isFromMe, timestamp, onR
     setIsProcessing(true);
     try {
       // Mark proposal as ignored (could store in local state/database)
-      console.log('Ignoring proposal:', tradeData);
       toast.success('Proposal ignored');
 
       // You could add local storage or state management here
@@ -298,7 +293,6 @@ export default function TradeMessageRenderer({ content, isFromMe, timestamp, onR
   const handleCancelAction = async () => {
     setIsProcessing(true);
     try {
-      console.log('Canceling action:', tradeData);
       toast.success('Action canceled');
     } catch (error) {
       console.error('Error canceling:', error);

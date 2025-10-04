@@ -1042,7 +1042,6 @@ export default function DomainMarketplace() {
       return;
     }
 
-    console.log('📱 Clicking message on domain:', domain.name, 'Owner:', ownerAddress, 'Current selectedUserAddress:', selectedUserAddress);
     setSelectedUserAddress(ownerAddress);
     setShowCheckingDM(true);
     setChatDomainSearchQuery('');

@@ -58,7 +58,7 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
   // Process domain search results
   const searchedDomains = domainSearchData?.pages?.flatMap(page => page.items) || [];
 
-  // Load conversations (copied from domainline)
+  // Load conversations
   const loadConversations = useCallback(async () => {
     if (!client) return;
 
@@ -85,7 +85,7 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
               peerAddress = state?.[0]?.identifiers?.[0]?.identifier || "";
             }
           } catch (error) {
-            console.log("peerInboxId method failed, trying members:", error);
+            // peerInboxId method failed, trying members
           }
 
           // Method 2: Fallback to members approach (matching ImprovedXMTPChat style)
@@ -94,7 +94,7 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
               const members = await dm.members();
               peerAddress = (members?.[0] as { identifier?: string })?.identifier || "";
             } catch (error) {
-              console.log("members method failed:", error);
+              // members method failed
             }
           }
 
@@ -104,7 +104,7 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
               const address = (dm as Dm & { members?: { identifier: string }[] }).members?.[0]?.identifier;
               if (address) peerAddress = address;
             } catch (error) {
-              console.log("direct members access failed:", error);
+              // direct members access failed
             }
           }
 
@@ -141,7 +141,7 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
     }
   }, [client]);
 
-  // Create conversation (copied from domainline)
+  // Create conversation
   const createConversation = useCallback(
     async (peerAddress: string): Promise<Dm | null> => {
       if (!client) {
@@ -149,7 +149,7 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
       }
 
       try {
-        // Check if user can message this address (exact domainline pattern)
+        // Check if user can message this address
         const identifier = {
           identifier: peerAddress,
           identifierKind: "Ethereum" as const
@@ -162,10 +162,9 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
           return null;
         }
 
-        // Create the conversation using identifier (domainline useConversations pattern)
+        // Create the conversation using identifier
         const conversation = await client.conversations.newDmWithIdentifier(identifier);
 
-        console.log("Conversation created successfully");
         loadConversations(); // Refresh conversations list
 
         return conversation;
@@ -187,7 +186,7 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
     }
   }, [client, loadConversations]);
 
-  // Find existing conversation by peer address (like domainline)
+  // Find existing conversation by peer address
   const findConversationByPeer = useCallback(
     (peerAddress: string) => {
       return conversations.find(conv =>
@@ -197,7 +196,7 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
     [conversations]
   );
 
-  // Get or create conversation (like domainline)
+  // Get or create conversation
   const getOrCreateConversation = useCallback(
     async (peerAddress: string) => {
       // First check if conversation already exists
@@ -243,7 +242,7 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
     [findConversationByPeer, createConversation, client]
   );
 
-  // Filter conversations based on search query (similar to domainline)
+  // Filter conversations based on search query
   // const filteredConversations = conversations.filter(conv => {
   //   if (!searchQuery.trim()) return true;
   //   const lastMessage = conv.metadata?.lastMessage || "";
@@ -317,7 +316,7 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
     loadMessages()
   }, [activeConversation])
 
-  // Stream messages for real-time updates (like domainline)
+  // Stream messages for real-time updates
   useEffect(() => {
     if (!activeConversation) return
 
@@ -373,11 +372,6 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
   const handleSendMessage = async () => {
     if (!activeConversation || !newMessage.trim()) return
 
-    // Debug: Check what methods are available
-    console.log('Active conversation object:', activeConversation)
-    console.log('Available methods:', Object.getOwnPropertyNames(activeConversation))
-    console.log('Has send method:', typeof activeConversation.originalDm.send)
-
     setIsSendingMessage(true)
     try {
       // Check if send method exists
@@ -385,10 +379,9 @@ export function ChatInterface({ defaultPeerAddress }: ChatInterfaceProps) {
         throw new Error('activeConversation.originalDm.send is not a function. Object type: ' + typeof activeConversation.originalDm)
       }
 
-      // Simple send like domainline - no sync needed
+      // Simple send - no sync needed
       await activeConversation.originalDm.send(newMessage.trim())
       setNewMessage('')
-      console.log('Message sent successfully')
     } catch (err) {
       console.error('Failed to send message:', err)
       alert('Failed to send message. Please try again.')

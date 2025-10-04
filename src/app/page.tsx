@@ -4,6 +4,8 @@ import DomainMarketplace from '@/components/DomainMarketplace'
 import Footer from '@/components/Footer'
 import { Metadata } from 'next'
 import Header from '@/components/Header'
+import PWAInstallPrompt from '@/components/PWAInstallPrompt'
+import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration'
 
 export const metadata: Metadata = {
   title: 'Doma Space - Premium Domain Marketplace & Trading Platform',
@@ -51,6 +53,8 @@ export default function Home() {
       <Features />
       <DomainMarketplace />
       <Footer />
+      <PWAInstallPrompt />
+      <ServiceWorkerRegistration />
     </div>
   );
 }

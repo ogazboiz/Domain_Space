@@ -218,9 +218,7 @@ export default function TradeOptionsModal({
         params,
         chainId,
         onProgress: (progress) => {
-          progress.forEach((step, index) => {
-            console.log(`Step ${index + 1}: ${step.description} - ${step.status}`);
-          });
+          // Progress tracking
         },
         signer: viemToEthersSigner(walletClient, chainId),
         hasWethOffer: selectedCurrency.symbol?.toLowerCase() === 'weth',
@@ -296,9 +294,7 @@ export default function TradeOptionsModal({
         params,
         chainId,
         onProgress: (progress) => {
-          progress.forEach((step, index) => {
-            console.log(`Step ${index + 1}: ${step.description} - ${step.status}`);
-          });
+          // Progress tracking
         },
         signer: viemToEthersSigner(walletClient, chainId),
       });

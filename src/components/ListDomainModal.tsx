@@ -42,9 +42,6 @@ export default function ListDomainModal({
     const token = domain?.tokens?.[0];
     if (!token) return;
 
-    console.log("Debug - token data:", token);
-    console.log("Debug - openseaCollectionSlug:", token.openseaCollectionSlug);
-    console.log("Debug - orderbook:", orderbook);
 
     try {
       const supportedCurrencies = await getSupportedCurrencies({
@@ -103,14 +100,12 @@ export default function ListDomainModal({
     setIsLoading(true);
 
     try {
-      console.log("Debug - price value:", price, "type:", typeof price);
 
       if (!price || price.trim() === "") {
         throw new Error("Please enter a price");
       }
 
       const numericPrice = parseFloat(price);
-      console.log("Debug - parsed price:", numericPrice);
 
       if (isNaN(numericPrice) || numericPrice <= 0) {
         throw new Error("Please enter a valid positive number for price");
@@ -120,8 +115,6 @@ export default function ListDomainModal({
         throw new Error("Please select a currency");
       }
 
-      console.log("Debug - selectedCurrency:", selectedCurrency);
-      console.log("Debug - selectedCurrency.decimals:", selectedCurrency.decimals);
 
       if (!selectedCurrency.decimals || isNaN(selectedCurrency.decimals)) {
         throw new Error("Currency decimals are invalid");
@@ -136,7 +129,7 @@ export default function ListDomainModal({
         throw new Error("Please connect your wallet");
       }
 
-      // Parse CAIP10 chain ID (matching frontend implementation)
+      // Parse CAIP10 chain ID
       const parseCAIP10 = (input: string) => {
         const parts = input.split(":");
         const namespace = parts[0];
@@ -145,10 +138,7 @@ export default function ListDomainModal({
         return { namespace, chainId, address };
       };
 
-      console.log("Debug - token.chain.networkId:", token.chain.networkId);
       const parsedChain = parseCAIP10(token.chain.networkId);
-      console.log("Debug - parsedChain:", parsedChain);
-      console.log("Debug - chainId as number:", Number(parsedChain.chainId));
 
       // Switch to correct chain
       await walletClient.switchChain({
@@ -158,11 +148,8 @@ export default function ListDomainModal({
       // Calculate duration in milliseconds
       const durationMs = Number(duration) * 24 * 3600 * 1000;
 
-      // Create params exactly like frontend
-      console.log("Debug - About to parseUnits with:", { price: numericPrice.toString(), decimals: selectedCurrency.decimals });
-
+      // Create params
       const parsedPrice = parseUnits(numericPrice.toString(), selectedCurrency.decimals).toString();
-      console.log("Debug - Parsed price result:", parsedPrice);
 
       const params = {
         items: [
@@ -179,13 +166,8 @@ export default function ListDomainModal({
         marketplaceFees: fees,
       };
 
-      console.log("Debug - Final params:", params);
-      console.log("Debug - Your wallet address:", await walletClient.account?.address);
-      console.log("Debug - Token contract:", token.tokenAddress);
-      console.log("Debug - Token ID:", token.tokenId);
 
       // Check on-chain ownership BEFORE listing
-      console.log("🔍 Checking on-chain ownership BEFORE listing...");
       const viemModule = await import('viem');
       const publicClient = viemModule.createPublicClient({
         chain: { id: Number(parsedChain.chainId), name: 'Doma', rpcUrls: { default: { http: ['https://fraa-flashbox-2800-rpc.a.stagenet.tanssi.network'] } }, nativeCurrency: { name: 'DOMA', symbol: 'DOMA', decimals: 18 } },
@@ -199,7 +181,6 @@ export default function ListDomainModal({
           functionName: 'ownerOf',
           args: [BigInt(token.tokenId)]
         });
-        console.log("👤 On-chain owner BEFORE listing:", ownerBefore);
       } catch (err) {
         console.error("Error checking owner before:", err);
       }
@@ -208,30 +189,12 @@ export default function ListDomainModal({
         params,
         chainId: token.chain.networkId,
         onProgress: (progress) => {
-          progress.forEach((step) => {
-            console.log(`Step ${step.kind}: ${step.description}`);
-
-            // Log detailed step information
-            console.log("📋 Full step details:", step);
-
-            // Check if this step involves transfers or approvals
-            if (step.action && typeof step.action === 'object' && 'type' in step.action) {
-              console.log("🔍 Transaction details:", step.action);
-            }
-
-            // Log any transaction hashes
-            if (step.txHashes && step.txHashes.length > 0) {
-              console.log(`🔗 Transaction hashes: ${step.txHashes.join(', ')}`);
-            }
-          });
+          // Progress tracking
         },
         signer: viemToEthersSigner(walletClient, token.chain.networkId),
       });
 
-      console.log("Listing created successfully:", result);
-
       // Check on-chain ownership AFTER listing
-      console.log("🔍 Checking on-chain ownership AFTER listing...");
       try {
         const ownerAfter = await publicClient.readContract({
           address: token.tokenAddress as `0x${string}`,
@@ -239,8 +202,6 @@ export default function ListDomainModal({
           functionName: 'ownerOf',
           args: [BigInt(token.tokenId)]
         });
-        console.log("👤 On-chain owner AFTER listing:", ownerAfter);
-        console.log("🤔 Did ownership change?", ownerAfter !== await walletClient.account?.address);
       } catch (err) {
         console.error("Error checking owner after:", err);
       }

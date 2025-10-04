@@ -85,12 +85,10 @@ export default function Header() {
       e.preventDefault();
       e.stopPropagation();
     }
-    console.log('Mobile menu toggle clicked, current state:', isMobileMenuOpen, 'will set to:', !isMobileMenuOpen);
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
   const handleMobileMenuClose = () => {
-    console.log('Mobile menu close clicked');
     setIsMobileMenuOpen(false);
   };
 

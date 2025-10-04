@@ -37,7 +37,7 @@ export default function DomainDetailsPage() {
 
   const domainName = decodeURIComponent(params.domainName as string);
 
-  // Use Doma's real data service like the frontend
+  // Use Doma's real data service
   const {
     data: namesData,
     isLoading,

@@ -62,7 +62,7 @@ export default function CancelListingModal({
         id: Number(parseCAIP10(token.chain.networkId).chainId),
       });
 
-      // Get order ID from token.listings (like frontend)
+      // Get order ID from token.listings
       const orderId = token.listings?.[0]?.externalId;
       if (!orderId) {
         throw new Error("No order ID found for this listing");
@@ -77,14 +77,11 @@ export default function CancelListingModal({
         params,
         chainId: `eip155:${Number(parseCAIP10(token.chain.networkId).chainId)}`,
         onProgress: (progress) => {
-          progress.forEach((step) => {
-            console.log(`Cancel step ${step.kind}: ${step.description}`);
-          });
+          // Progress tracking
         },
         signer: viemToEthersSigner(walletClient, token.chain.networkId),
       });
 
-      console.log("Listing cancelled successfully");
       onSuccess?.(domain);
       onClose();
     } catch (err: unknown) {

@@ -1,0 +1,77 @@
+{
+  "name": "Domain Space - DomainFi Trading Platform",
+  "short_name": "Domain Space",
+  "description": "Discover, trade, and manage premium domains with integrated XMTP messaging and orderbook functionality",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#8B5CF6",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en",
+  "categories": ["finance", "business", "productivity"],
+  "icons": [
+    {
+      "src": "/logo_white.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo_dark.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "16x16 32x32 48x48",
+      "type": "image/x-icon",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Browse Domains",
+      "short_name": "Browse",
+      "description": "Search and discover domains",
+      "url": "/?tab=browse",
+      "icons": [
+        {
+          "src": "/logo_white.png",
+          "sizes": "any"
+        }
+      ]
+    },
+    {
+      "name": "My Portfolio",
+      "short_name": "Portfolio",
+      "description": "Manage your domain portfolio",
+      "url": "/?tab=myspace",
+      "icons": [
+        {
+          "src": "/logo_white.png",
+          "sizes": "any"
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "short_name": "Chat",
+      "description": "Message domain owners",
+      "url": "/?tab=chat",
+      "icons": [
+        {
+          "src": "/logo_white.png",
+          "sizes": "any"
+        }
+      ]
+    }
+  ]
+}

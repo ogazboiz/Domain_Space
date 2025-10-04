@@ -34,7 +34,7 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
   const { address } = useAccount();
   const { signMessageAsync } = useSignMessage();
 
-  // Create signer using domainline's exact pattern
+  // Create signer
   const signer: Signer = useMemo(() => {
     return {
       type: "EOA",
@@ -52,7 +52,7 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [address, signMessageAsync]);
 
-  // Simplified connection logic like domainline
+  // Simplified connection logic
   const connectXmtpCore = useCallback(async () => {
     if (!address) return;
 
@@ -334,7 +334,7 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
   }, []);
 
-  // Simple connect to XMTP like domainline
+  // Simple connect to XMTP
   const connectXmtp = useCallback(async () => {
     if (!address) return;
     setIsLoading(true);
@@ -351,14 +351,14 @@ export const XMTPProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [address, connectXmtpCore]);
 
-  // Auto-connect when wallet connects (like domainline)
+  // Auto-connect when wallet connects
   useEffect(() => {
     if (address && !client) {
       connectXmtp();
     }
   }, [address, client, connectXmtp]);
 
-  // Auto-disconnect when wallet disconnects (like domainline)
+  // Auto-disconnect when wallet disconnects
   useEffect(() => {
     if (!address) {
       setClient(null);

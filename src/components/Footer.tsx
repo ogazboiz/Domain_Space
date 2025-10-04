@@ -13,7 +13,6 @@ export default function Footer() {
     setIsSubscribing(true);
     try {
       // TODO: Implement actual subscription logic
-      console.log("Subscribing email:", email);
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       setEmail("");

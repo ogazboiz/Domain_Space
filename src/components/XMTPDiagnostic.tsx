@@ -40,7 +40,6 @@ export default function XMTPDiagnostic() {
       }
 
       setDiagnostics(results);
-      console.log('🔧 XMTP Diagnostics:', results);
     };
 
     if (address) {

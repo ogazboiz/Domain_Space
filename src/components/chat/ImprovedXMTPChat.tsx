@@ -354,27 +354,18 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
 
           // Extract last message content with better handling
           let lastMessageContent: string | undefined;
-          if (lastMessage) {
-            console.log('Last message for conversation:', {
-              content: lastMessage.content,
-              contentType: lastMessage.contentType,
-              isString: typeof lastMessage.content === "string",
-              isAttachment: lastMessage.contentType?.sameAs(ContentTypeRemoteAttachment)
-            });
-            
-            if (typeof lastMessage.content === "string") {
-              lastMessageContent = lastMessage.content;
-            } else if (lastMessage.contentType?.sameAs(ContentTypeRemoteAttachment)) {
-              lastMessageContent = "📎 Attachment";
-            } else if (lastMessage.contentType?.sameAs(ContentTypeReaction)) {
-              lastMessageContent = "👍 Reaction";
-            } else {
-              // Fallback for other content types
-              lastMessageContent = "Message";
+            if (lastMessage) {
+              if (typeof lastMessage.content === "string") {
+                lastMessageContent = lastMessage.content;
+              } else if (lastMessage.contentType?.sameAs(ContentTypeRemoteAttachment)) {
+                lastMessageContent = "📎 Attachment";
+              } else if (lastMessage.contentType?.sameAs(ContentTypeReaction)) {
+                lastMessageContent = "👍 Reaction";
+              } else {
+                // Fallback for other content types
+                lastMessageContent = "Message";
+              }
             }
-          } else {
-            console.log('No last message found for conversation');
-          }
 
           return {
             id: dm.id,
@@ -563,10 +554,8 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
       });
       setMessages(validMessages)
 
-      // Reload conversations to update last message in conversation list
-      console.log('Reloading conversations after sending message...');
-      await loadConversations();
-      console.log('Conversations reloaded');
+        // Reload conversations to update last message in conversation list
+        await loadConversations();
 
       // Scroll to bottom after sending message
       scrollToBottom()
@@ -1131,7 +1120,6 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
   // Disabled automatic scrolling to prevent page scroll issues
   // Scrolling is now only handled manually when sending messages
   // useEffect(() => {
-  //   // console.log("🔄 Scroll effect triggered", { 
   //     messagesLength: messages.length, 
   //     loadingMessages, 
   //     isManuallySelecting,
