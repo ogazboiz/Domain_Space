@@ -54,7 +54,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null)
   const [isLongPressing, setIsLongPressing] = useState(false)
   const [pendingAttachment, setPendingAttachment] = useState<RemoteAttachmentData | null>(null)
-
+  
   // Reactions hook
   const { reactions, addReaction, removeReaction, loadReactions } = useReactions(
     client,
@@ -549,8 +549,8 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
         setPendingAttachment(null)
       } else {
         // Send text message
-        await activeConversation.send(newMessage.trim())
-        setNewMessage('')
+      await activeConversation.send(newMessage.trim())
+      setNewMessage('')
       }
 
       // Sync to see the sent message immediately
@@ -724,7 +724,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
 
       // Load ALL messages (including reactions)
       const allMsgs = await conversation.xmtpObject.messages();
-
+      
       // Filter messages to include text and attachments (exclude reactions, receipts, etc)
       const validMessages = allMsgs.filter((msg: DecodedMessage) => {
         // Include text messages
@@ -785,14 +785,14 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
             await existingConversation.xmtpObject.sync();
             await new Promise(resolve => setTimeout(resolve, 100));
             const msgs = await existingConversation.xmtpObject.messages();
-
+            
             // Filter messages to include text and attachments
             const validMessages = msgs.filter((msg: DecodedMessage) => {
               const isText = typeof msg.content === "string" && msg.content !== "";
               const isAttachment = msg.contentType?.sameAs(ContentTypeRemoteAttachment);
               return isText || isAttachment;
             });
-
+            
             setMessages(validMessages);
             loadReactions(msgs);
           } catch (error) {
@@ -838,14 +838,14 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
             await conversation.sync();
             await new Promise(resolve => setTimeout(resolve, 100));
             const msgs = await conversation.messages();
-
+            
             // Filter messages to include text and attachments
             const validMessages = msgs.filter((msg: DecodedMessage) => {
               const isText = typeof msg.content === "string" && msg.content !== "";
               const isAttachment = msg.contentType?.sameAs(ContentTypeRemoteAttachment);
               return isText || isAttachment;
             });
-
+            
             setMessages(validMessages);
             loadReactions(msgs);
           } catch (error) {
@@ -897,14 +897,14 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
               await (conversation as Dm).sync();
               await new Promise(resolve => setTimeout(resolve, 100));
               const msgs = await (conversation as Dm).messages();
-
+              
               // Filter messages to include text and attachments
               const validMessages = msgs.filter((msg: DecodedMessage) => {
                 const isText = typeof msg.content === "string" && msg.content !== "";
                 const isAttachment = msg.contentType?.sameAs(ContentTypeRemoteAttachment);
                 return isText || isAttachment;
               });
-
+              
               setMessages(validMessages);
               loadReactions(msgs);
             } catch (error) {
@@ -1250,7 +1250,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
         <div className="p-4 border-b border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-3">
-              <h2 className="text-xl font-bold">Messages</h2>
+            <h2 className="text-xl font-bold">Messages</h2>
               {/* Back to Tabs Button - Only in fullscreen mode */}
               {isFullscreen && onBackToMarketplace && (
                 <button
@@ -2063,16 +2063,16 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                                   : 'opacity-0 group-hover:opacity-100'
                               }`}>
                                 {/* React Button */}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setShowEmojiPicker(showEmojiPicker === message.id ? null : message.id);
-                                  }}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowEmojiPicker(showEmojiPicker === message.id ? null : message.id);
+                                }}
                                   className="bg-gray-800 hover:bg-gray-700 rounded-full p-1.5 shadow-lg"
-                                  title="React to message"
-                                >
-                                  <Smile className="w-4 h-4 text-gray-300" />
-                                </button>
+                                title="React to message"
+                              >
+                                <Smile className="w-4 h-4 text-gray-300" />
+                              </button>
                               </div>
                             )}
 
@@ -2117,21 +2117,21 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                                 className="max-w-xs"
                               />
                             ) : (
-                              <TradeMessageRenderer
-                                content={String(message.content)}
-                                isFromMe={isFromMe}
-                                timestamp={new Date(Number(message.sentAtNs) / 1_000_000)}
-                                onReply={() => setShowTradeModal(true)}
+                            <TradeMessageRenderer
+                              content={String(message.content)}
+                              isFromMe={isFromMe}
+                              timestamp={new Date(Number(message.sentAtNs) / 1_000_000)}
+                              onReply={() => setShowTradeModal(true)}
                                 onSendMessage={async (msg: string) => {
-                                  if (activeConversation) {
-                                    try {
+                                if (activeConversation) {
+                                  try {
                                       await activeConversation.send(msg);
-                                    } catch (error) {
-                                      toast.error('Failed to send response message');
-                                    }
+                                  } catch (error) {
+                                    toast.error('Failed to send response message');
                                   }
-                                }}
-                              />
+                                }
+                              }}
+                            />
                             )}
                             
                             {/* Timestamp */}
@@ -2602,22 +2602,22 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                             className="max-w-xs"
                           />
                         ) : (
-                          <TradeMessageRenderer
-                            content={String(message.content)}
-                            isFromMe={isFromMe}
-                            timestamp={new Date(Number(message.sentAtNs) / 1_000_000)}
-                            onReply={() => setShowTradeModal(true)}
-                            onSendMessage={async (message: string) => {
-                              if (activeConversation) {
-                                try {
-                                  await activeConversation.send(message);
-                                } catch (error) {
-                                  console.error('Failed to send response message:', error);
-                                  toast.error('Failed to send response message');
-                                }
+                        <TradeMessageRenderer
+                          content={String(message.content)}
+                          isFromMe={isFromMe}
+                          timestamp={new Date(Number(message.sentAtNs) / 1_000_000)}
+                          onReply={() => setShowTradeModal(true)}
+                          onSendMessage={async (message: string) => {
+                            if (activeConversation) {
+                              try {
+                                await activeConversation.send(message);
+                              } catch (error) {
+                                console.error('Failed to send response message:', error);
+                                toast.error('Failed to send response message');
                               }
-                            }}
-                          />
+                            }
+                          }}
+                        />
                         )}
                           {/* Timestamp */}
                           {!String(message.content).startsWith('created_offer::') &&

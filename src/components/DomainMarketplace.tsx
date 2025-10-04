@@ -182,20 +182,20 @@ const ChatDomainSearchBar = ({
   return (
   <div className="flex items-center gap-2 w-full lg:w-64">
     <div ref={searchRef} className="relative flex-1">
-      <input
-        type="text"
-        placeholder="Search domains to message..."
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        onFocus={() => {
-          setShowResults(true);
-          onFocus();
-        }}
-        className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 pr-10 text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 w-full"
-      />
-      <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"/>
-      </svg>
+    <input
+      type="text"
+      placeholder="Search domains to message..."
+      value={searchQuery}
+      onChange={(e) => setSearchQuery(e.target.value)}
+      onFocus={() => {
+        setShowResults(true);
+        onFocus();
+      }}
+      className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 pr-10 text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 w-full"
+    />
+    <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+      <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"/>
+    </svg>
     </div>
     
     {/* Mobile Fullscreen Toggle Button */}
