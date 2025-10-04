@@ -81,7 +81,7 @@ export class CloudinaryUploadService {
     encryptedData: Uint8Array,
     filename: string
   ): Promise<string> {
-    const blob = new Blob([encryptedData], { type: 'application/octet-stream' });
+    const blob = new Blob([encryptedData as BlobPart], { type: 'application/octet-stream' });
     
     const result = await this.uploadFile(blob, {
       folder: 'xmtp-attachments',
@@ -89,7 +89,7 @@ export class CloudinaryUploadService {
       resource_type: 'raw'
     });
 
-    return result.secure_url;
+    return result;
   }
 
   /**

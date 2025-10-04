@@ -6,12 +6,15 @@ import {
   ContentTypeRemoteAttachment,
   type RemoteAttachment,
 } from '@xmtp/content-type-remote-attachment';
+import type { Client } from '@xmtp/browser-sdk';
 import { cloudinaryUpload } from './cloudinary-upload';
 
 export interface AttachmentData {
   filename: string;
   mimeType: string;
   data: Uint8Array;
+  size?: number;
+  blobUrl?: string;
 }
 
 export interface RemoteAttachmentData {
@@ -91,7 +94,7 @@ export class XMTPAttachmentService {
       );
 
       // Step 4: Upload encrypted data to Cloudinary
-      const encryptedBlob = new Blob([encryptedEncoded.payload], {
+      const encryptedBlob = new Blob([encryptedEncoded.payload as BlobPart], {
         type: 'application/octet-stream'
       });
       const url = await cloudinaryUpload.uploadFile(encryptedBlob, {
@@ -121,7 +124,7 @@ export class XMTPAttachmentService {
   /**
    * Load and decrypt a remote attachment
    */
-  async loadRemoteAttachment(remoteAttachment: RemoteAttachmentData, client: any): Promise<AttachmentData> {
+  async loadRemoteAttachment(remoteAttachment: RemoteAttachmentData, client: Client): Promise<AttachmentData> {
     try {
       // Create RemoteAttachment object for loading
       const remoteAttachmentObj: RemoteAttachment = {

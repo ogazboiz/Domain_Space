@@ -352,13 +352,35 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
           // Skip conversations without valid peer addresses
           if (!peerAddress) return null;
 
+          // Extract last message content with better handling
+          let lastMessageContent: string | undefined;
+          if (lastMessage) {
+            console.log('Last message for conversation:', {
+              content: lastMessage.content,
+              contentType: lastMessage.contentType,
+              isString: typeof lastMessage.content === "string",
+              isAttachment: lastMessage.contentType?.sameAs(ContentTypeRemoteAttachment)
+            });
+            
+            if (typeof lastMessage.content === "string") {
+              lastMessageContent = lastMessage.content;
+            } else if (lastMessage.contentType?.sameAs(ContentTypeRemoteAttachment)) {
+              lastMessageContent = "📎 Attachment";
+            } else if (lastMessage.contentType?.sameAs(ContentTypeReaction)) {
+              lastMessageContent = "👍 Reaction";
+            } else {
+              // Fallback for other content types
+              lastMessageContent = "Message";
+            }
+          } else {
+            console.log('No last message found for conversation');
+          }
+
           return {
             id: dm.id,
             peerAddress,
             metadata: {
-              lastMessage: typeof lastMessage?.content === "string"
-                ? lastMessage.content
-                : undefined,
+              lastMessage: lastMessageContent,
               lastMessageTime: lastMessage
                 ? new Date(Number(lastMessage.sentAtNs) / 1_000_000)
                 : undefined,
@@ -541,6 +563,11 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
       });
       setMessages(validMessages)
 
+      // Reload conversations to update last message in conversation list
+      console.log('Reloading conversations after sending message...');
+      await loadConversations();
+      console.log('Conversations reloaded');
+
       // Scroll to bottom after sending message
       scrollToBottom()
     } catch (err) {
@@ -665,10 +692,8 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     // Set manual selection flag to prevent auto-create effect from interfering
     setIsManuallySelecting(true);
 
-    // Notify parent that user manually selected a conversation (clear defaultPeerAddress)
-    if (onManualConversationSelect) {
-      onManualConversationSelect();
-    }
+    // Don't call onManualConversationSelect() when selecting an existing conversation
+    // This prevents clearing the defaultPeerAddress which causes conversation reloading
     
     // Clear any error states and messages immediately
     setConversationError(null);
@@ -718,7 +743,8 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
       setMessages([]);
     } finally {
       setLoadingMessages(false);
-      setIsManuallySelecting(false);
+      // Don't reset isManuallySelecting flag - keep it true to prevent conversation clearing
+      // Only reset it when user clicks "Message" on a domain or goes back to conversation list
     }
     
     const params = new URLSearchParams(window.location.search);
@@ -728,9 +754,24 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
   };
 
   useEffect(() => {
-    // Only run if we have a VALID defaultPeerAddress and client, and no active conversation
+    // Only run if we have a VALID defaultPeerAddress and client
     // This prevents running when manually selecting conversations or when defaultPeerAddress is empty
-    if (defaultPeerAddress && defaultPeerAddress.trim() && client && !activeConversation && !isManuallySelecting) {
+    if (defaultPeerAddress && defaultPeerAddress.trim() && client && !isManuallySelecting) {
+      // Reset the manual selecting flag when starting a new conversation from domain message
+      setIsManuallySelecting(false);
+      
+      // Clear URL parameters when starting new conversation (only if they exist)
+      const params = new URLSearchParams(window.location.search);
+      if (params.has("dm") || params.has("sender")) {
+        params.delete("dm");
+        params.delete("sender");
+        // Only update URL if there are still parameters left, otherwise use clean path
+        const newUrl = params.toString() ? 
+          `${window.location.pathname}?${params}` : 
+          window.location.pathname;
+        window.history.replaceState({}, "", newUrl);
+      }
+      
       const createConversationForPeer = async () => {
         // Check if we already have a conversation with this peer
         const existingConversation = findConversationByPeer(defaultPeerAddress);
@@ -811,6 +852,10 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
             console.error("Failed to load messages:", error);
             setMessages([]);
           }
+          
+          // Set the active conversation and peer address
+          setActiveConversation(conversation);
+          setActivePeerAddress(defaultPeerAddress);
           
           // Show success state briefly
           setConversationSuccess(true);
@@ -901,9 +946,24 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
     };
   }, [client, loadConversations]);
 
-  // Clear active conversation when defaultPeerAddress becomes empty to prevent invalid state
+  // Clear active conversation when defaultPeerAddress changes to a new value
   useEffect(() => {
-    if (!defaultPeerAddress || !defaultPeerAddress.trim()) {
+    // Don't clear conversation if user is manually selecting
+    if (isManuallySelecting) {
+      return;
+    }
+    
+    if (defaultPeerAddress && defaultPeerAddress.trim()) {
+      // Clear current conversation when switching to a new peer
+      setActiveConversation(null);
+      setMessages([]);
+      setConversationError(null);
+      setConversationSuccess(false);
+      setIsCreatingConversation(false);
+      setLoadingMessages(false);
+      setNewConversationAddress(defaultPeerAddress);
+    } else if (!defaultPeerAddress || !defaultPeerAddress.trim()) {
+      // Clear everything when defaultPeerAddress becomes empty
       setActiveConversation(null);
       setMessages([]);
       setConversationError(null);
@@ -911,11 +971,8 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
       setIsCreatingConversation(false);
       setLoadingMessages(false);
       setNewConversationAddress('');
-    } else if (defaultPeerAddress && defaultPeerAddress.trim()) {
-      // Update newConversationAddress when defaultPeerAddress changes to a valid value
-      setNewConversationAddress(defaultPeerAddress);
     }
-  }, [defaultPeerAddress]);
+  }, [defaultPeerAddress, isManuallySelecting]);
 
   // Clear all chat state when wallet address changes, but only after XMTP client is ready
   useEffect(() => {
@@ -1560,7 +1617,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
 
         {/* Mobile Content Area */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {!activeConversation ? (
+          {!activeConversation && !defaultPeerAddress ? (
             /* Mobile Conversation List */
             <div className="flex-1 overflow-y-auto bg-gray-900">
               {/* Search Bar */}
@@ -1687,6 +1744,187 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                     })}
                   </div>
                 )}
+              </div>
+            </div>
+          ) : defaultPeerAddress && !activeConversation ? (
+            /* Mobile XMTP Eligibility Check & Conversation Creation */
+            <div className="flex-1 flex items-center justify-center bg-gray-900">
+              <div className="text-center max-w-md mx-4">
+                {/* XMTP Connection Status */}
+                {!isConnected && address && (
+                  <div className="mb-6">
+                    <div className="w-16 h-16 rounded-full bg-blue-900/50 flex items-center justify-center mb-4 mx-auto">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+                    </div>
+                    <h3 className="font-semibold text-lg mb-2 text-blue-300">
+                      {isLoading ? "Connecting to XMTP..." : "Initializing XMTP..."}
+                    </h3>
+                    <p className="text-sm text-gray-400">
+                      Please wait while we establish your connection to XMTP
+                    </p>
+                  </div>
+                )}
+
+                {/* XMTP Error */}
+                {error && (
+                  <div className="mb-6">
+                    <div className="w-16 h-16 rounded-full bg-red-900/50 flex items-center justify-center mb-4 mx-auto">
+                      <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                    </div>
+                    <h3 className="font-semibold text-lg mb-2 text-red-300">
+                      XMTP Connection Error
+                    </h3>
+                    <p className="text-sm text-gray-400 mb-4">
+                      {error}
+                    </p>
+                    {error.includes('installation limit') && (
+                      <div className="space-y-2">
+                        <button
+                          onClick={revokeInstallations}
+                          disabled={isLoading}
+                          className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm rounded transition-colors mr-2"
+                        >
+                          {isLoading ? 'Revoking...' : 'Revoke Old Installations'}
+                        </button>
+                        <button
+                          onClick={clearLocalData}
+                          disabled={isLoading}
+                          className="px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white text-sm rounded transition-colors"
+                        >
+                          Clear Local Data
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Conversation Creation States */}
+                {isConnected && !error && (
+                  <>
+                    {isCreatingConversation ? (
+                      <div className="mb-6">
+                        <div className="w-16 h-16 rounded-full bg-purple-900/50 flex items-center justify-center mb-4 mx-auto">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
+                        </div>
+                        <h3 className="font-semibold text-lg mb-2 text-purple-300">
+                          Creating Conversation
+                        </h3>
+                        <p className="text-sm text-gray-400 mb-4">
+                          Starting conversation with {defaultPeerAddress ? `${defaultPeerAddress.slice(0, 6)}...${defaultPeerAddress.slice(-4)}` : 'user'}...
+                        </p>
+                        <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4">
+                          <div className="flex items-center space-x-3">
+                            <div className="text-purple-400 text-xl">🔐</div>
+                            <div className="text-left">
+                              <p className="text-sm text-purple-300 font-medium">Checking XMTP Eligibility</p>
+                              <p className="text-xs text-gray-400">Verifying if user can receive messages</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : conversationError === "not_registered" ? (
+                      <div className="mb-6">
+                        <div className="w-16 h-16 rounded-full bg-yellow-900/50 flex items-center justify-center mb-4 mx-auto">
+                          <svg className="w-8 h-8 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                          </svg>
+                        </div>
+                        <h3 className="font-semibold text-lg mb-2 text-yellow-300">
+                          User Not XMTP Eligible
+                        </h3>
+                        <p className="text-sm text-gray-400 mb-4">
+                          {defaultPeerAddress ? `${defaultPeerAddress.slice(0, 6)}...${defaultPeerAddress.slice(-4)}` : 'This user'} is not registered with XMTP and cannot receive messages.
+                        </p>
+                        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+                          <div className="flex items-center space-x-3">
+                            <div className="text-yellow-400 text-xl">⚠️</div>
+                            <div className="text-left">
+                              <p className="text-sm text-yellow-300 font-medium">Cannot Send Messages</p>
+                              <p className="text-xs text-gray-400">User needs to register with XMTP first</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : conversationError === "failed" ? (
+                      <div className="mb-6">
+                        <div className="w-16 h-16 rounded-full bg-red-900/50 flex items-center justify-center mb-4 mx-auto">
+                          <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                          </svg>
+                        </div>
+                        <h3 className="font-semibold text-lg mb-2 text-red-300">
+                          Failed to Create Conversation
+                        </h3>
+                        <p className="text-sm text-gray-400 mb-4">
+                          There was an error creating the conversation. Please try again.
+                        </p>
+                        <button
+                          onClick={() => {
+                            setConversationError(null);
+                            // Retry conversation creation
+                            if (defaultPeerAddress) {
+                              getOrCreateConversation(defaultPeerAddress);
+                            }
+                          }}
+                          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded transition-colors"
+                        >
+                          Try Again
+                        </button>
+                      </div>
+                    ) : conversationSuccess ? (
+                      <div className="mb-6">
+                        <div className="w-16 h-16 rounded-full bg-green-900/50 flex items-center justify-center mb-4 mx-auto">
+                          <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <h3 className="font-semibold text-lg mb-2 text-green-300">
+                          Conversation Started!
+                        </h3>
+                        <p className="text-sm text-gray-400 mb-4">
+                          Successfully connected with {defaultPeerAddress ? `${defaultPeerAddress.slice(0, 6)}...${defaultPeerAddress.slice(-4)}` : 'user'}
+                        </p>
+                        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+                          <div className="flex items-center space-x-3">
+                            <div className="text-green-400 text-xl">🎉</div>
+                            <div className="text-left">
+                              <p className="text-sm text-green-300 font-medium">Ready to Chat</p>
+                              <p className="text-xs text-gray-400">You can now send messages securely</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mb-6">
+                        <div className="w-16 h-16 rounded-full bg-blue-900/50 flex items-center justify-center mb-4 mx-auto">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+                        </div>
+                        <h3 className="font-semibold text-lg mb-2 text-blue-300">
+                          Preparing Chat
+                        </h3>
+                        <p className="text-sm text-gray-400">
+                          Setting up secure conversation with {defaultPeerAddress ? `${defaultPeerAddress.slice(0, 6)}...${defaultPeerAddress.slice(-4)}` : 'user'}...
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Back to Conversations Button */}
+                <button
+                  onClick={() => {
+                    // Reset manual selecting flag and clear defaultPeerAddress to go back to conversation list
+                    setIsManuallySelecting(false);
+                    if (onManualConversationSelect) {
+                      onManualConversationSelect();
+                    }
+                  }}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded transition-colors"
+                >
+                  Back to Conversations
+                </button>
               </div>
             </div>
           ) : (
@@ -1934,7 +2172,7 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                                   const isMyReaction = group.users.has(client?.inboxId || '');
                                   return (
                                     <button
-                                      key={`${group.emoji}-${index}`}
+                                      key={`${message.id}-${group.emoji}-${index}`}
                                       onClick={() => isMyReaction && removeReaction(message.id, group.emoji)}
                                       className={`px-2 py-0.5 rounded-full transition-all flex items-center gap-1 shadow-sm ${
                                         isMyReaction 
@@ -2401,11 +2639,11 @@ export default function ImprovedXMTPChat({ defaultPeerAddress, searchQuery = "",
                           <div className={`flex gap-1 mt-1 flex-wrap ${isFromMe ? 'justify-end' : 'justify-start'}`}>
                             {reactions
                               .filter(r => r.messageId === message.id)
-                              .map((reaction) => {
+                              .map((reaction, index) => {
                                 const isMyReaction = reaction.from === client?.inboxId;
                                 return (
                                   <button
-                                    key={`${reaction.from}-${reaction.emoji}`}
+                                    key={`${message.id}-${reaction.from}-${reaction.emoji}-${index}`}
                                     onClick={() => isMyReaction && removeReaction(message.id, reaction.emoji)}
                                     className={`px-2 py-0.5 rounded-full transition-all flex items-center gap-1 shadow-sm ${
                                       isMyReaction 

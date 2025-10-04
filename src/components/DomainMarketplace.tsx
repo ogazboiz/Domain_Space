@@ -509,9 +509,9 @@ const DomainGrid = ({
       ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-3'
       : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4'
   }`}>
-    {domains.map((domain) => (
+    {domains.map((domain, index) => (
       <DomainCard
-        key={domain.name}
+        key={`${domain.name}-${domain.claimedBy}-${index}`}
         domain={domain}
         formatPrice={formatPrice}
         getTldColor={getTldColor}
@@ -1042,7 +1042,7 @@ export default function DomainMarketplace() {
       return;
     }
 
-    
+    console.log('📱 Clicking message on domain:', domain.name, 'Owner:', ownerAddress, 'Current selectedUserAddress:', selectedUserAddress);
     setSelectedUserAddress(ownerAddress);
     setShowCheckingDM(true);
     setChatDomainSearchQuery('');

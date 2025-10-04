@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Download, File, Image, Video, Music, FileText, AlertCircle } from 'lucide-react';
-import { xmtpAttachmentService, type RemoteAttachmentData } from '@/services/xmtp-attachment';
+import { xmtpAttachmentService, type RemoteAttachmentData, type AttachmentData } from '@/services/xmtp-attachment';
 import { cloudinaryUpload } from '@/services/cloudinary-upload';
 import { useXMTP } from '@/contexts/XMTPContext';
 
@@ -13,7 +13,7 @@ interface AttachmentDisplayProps {
 
 export function AttachmentDisplay({ remoteAttachment, className = '' }: AttachmentDisplayProps) {
   const { client } = useXMTP();
-  const [attachment, setAttachment] = useState<any>(null);
+  const [attachment, setAttachment] = useState<AttachmentData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -51,6 +51,7 @@ export function AttachmentDisplay({ remoteAttachment, className = '' }: Attachme
         setAttachment({
           filename: remoteAttachment.filename,
           mimeType: getMimeTypeFromFilename(remoteAttachment.filename),
+          data: new Uint8Array(0), // Empty data for fallback case
           size: remoteAttachment.contentLength,
         });
         return;
@@ -67,7 +68,7 @@ export function AttachmentDisplay({ remoteAttachment, className = '' }: Attachme
       );
 
       // Create a blob URL for preview
-      const blob = new Blob([decryptedAttachment.data], {
+      const blob = new Blob([decryptedAttachment.data as BlobPart], {
         type: decryptedAttachment.mimeType
       });
       const blobUrl = URL.createObjectURL(blob);
@@ -140,7 +141,7 @@ export function AttachmentDisplay({ remoteAttachment, className = '' }: Attachme
   const handleDownload = () => {
     if (attachment?.data) {
       // Download the decrypted file
-      const blob = new Blob([attachment.data], { type: attachment.mimeType });
+      const blob = new Blob([attachment.data as BlobPart], { type: attachment.mimeType });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -208,7 +209,7 @@ export function AttachmentDisplay({ remoteAttachment, className = '' }: Attachme
               {attachment.filename}
             </div>
             <div className="text-xs text-gray-400">
-              {formatFileSize(attachment.size)}
+              {attachment.size ? formatFileSize(attachment.size) : 'Unknown size'}
             </div>
           </div>
         </div>
